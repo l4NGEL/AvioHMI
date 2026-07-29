@@ -52,12 +52,12 @@ function App() {
         <h1>AvioHMI Ground Control</h1>
         <span className="route-name">{route.name}</span>
         <span className={`status-badge ${usingLive ? 'status-live' : 'status-demo'}`}>
-          {usingLive ? '● LIVE — Core' : '● DEMO — Core not detected'}
+          {usingLive ? '● LIVE' : '● OFFLINE PREVIEW'}
         </span>
       </header>
       <main className="app-body">
         <div className="map-card">
-          <RouteMap route={route} current={latest.data} />
+          <RouteMap route={route} current={latest.data} trail={ticks.map((t) => t.data)} />
         </div>
         <div className="side-column">
           <TelemetryPanel tick={latest} />

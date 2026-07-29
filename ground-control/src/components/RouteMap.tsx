@@ -3,13 +3,14 @@ import type { Route, FlightData } from '../types/telemetry';
 interface Props {
   route: Route;
   current: FlightData;
+  trail?: FlightData[];
 }
 
-const PADDING = 30;
+const PADDING = 34;
 const WIDTH = 480;
-const HEIGHT = 300;
+const HEIGHT = 320;
 
-export function RouteMap({ route, current }: Props) {
+export function RouteMap({ route, current, trail = [] }: Props) {
   const lats = route.waypoints.map((w) => w.lat);
   const lons = route.waypoints.map((w) => w.lon);
   const minLat = Math.min(...lats);
@@ -25,9 +26,24 @@ export function RouteMap({ route, current }: Props) {
 
   const points = route.waypoints.map((w) => project(w.lat, w.lon));
   const [acX, acY] = project(current.lat, current.lon);
+  const trailPoints = trail.map((t) => project(t.lat, t.lon));
 
   return (
-    <svg width={WIDTH} height={HEIGHT} className="route-map" role="img" aria-label="Route map">
+    <svg
+      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      width="100%"
+      height="100%"
+      className="route-map"
+      role="img"
+      aria-label="Route map"
+    >
+      <defs>
+        <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+          <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#1c2530" strokeWidth={1} />
+        </pattern>
+      </defs>
+      <rect x={0} y={0} width={WIDTH} height={HEIGHT} fill="url(#grid)" />
+
       <polyline
         points={points.map((p) => p.join(',')).join(' ')}
         fill="none"
@@ -35,6 +51,17 @@ export function RouteMap({ route, current }: Props) {
         strokeWidth={2}
         strokeDasharray="6 4"
       />
+
+      {trailPoints.length > 1 && (
+        <polyline
+          points={trailPoints.map((p) => p.join(',')).join(' ')}
+          fill="none"
+          stroke="#ffd166"
+          strokeWidth={1.5}
+          opacity={0.5}
+        />
+      )}
+
       {route.waypoints.map((w, i) => {
         const [x, y] = points[i];
         return (
@@ -46,7 +73,9 @@ export function RouteMap({ route, current }: Props) {
           </g>
         );
       })}
+
       <g transform={`translate(${acX}, ${acY}) rotate(${current.headingDeg})`}>
+        <circle r={12} fill="none" stroke="#ffd166" strokeWidth={1} opacity={0.4} />
         <polygon points="0,-9 6,7 0,3 -6,7" fill="#ffd166" stroke="#402d00" strokeWidth={1} />
       </g>
     </svg>

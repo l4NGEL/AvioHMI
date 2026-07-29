@@ -71,6 +71,7 @@ body {
   flex: 1;
   display: flex;
   flex-wrap: wrap;
+  align-items: stretch;
   gap: 20px;
   padding: 24px;
 }
@@ -84,11 +85,30 @@ body {
   padding: 16px;
 }
 
+.map-card {
+  flex: 3 1 480px;
+  min-height: 420px;
+  display: flex;
+}
+
 .side-column {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  flex: 1 1 280px;
   min-width: 280px;
+}
+
+.mission-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mission-log ul {
+  max-height: none;
+  flex: 1;
 }
 
 .telemetry-panel h2 {

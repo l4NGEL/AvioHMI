@@ -1,16 +1,17 @@
-# cockpit_mfd
+# AvioHMI Cockpit MFD
 
-A new Flutter project.
+Touch-driven multi-function display for the AvioHMI mission computer. See the
+[repository root README](../README.md) for the full picture, architecture,
+and screenshots.
 
-## Getting Started
+```bash
+flutter pub get
+flutter run          # or: flutter run -d windows / -d chrome
+flutter test
+```
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Connects live to Core's telemetry WebSocket at `ws://localhost:8765` (see
+`lib/models/flight_state.dart`), with automatic reconnect and a LINK/NO LINK
+indicator in the page-button row. `tool/verify_live_connection.dart` is a
+standalone smoke test that confirms a real connection to a running
+`core/serve.sh` (run with `flutter test tool/verify_live_connection.dart`).
