@@ -1,8 +1,9 @@
 import type { FlightData, Route, TelemetryTick, Waypoint } from '../types/telemetry';
 
-// Mirrors core/src/main/java/avio/domain and avio/service: same sample route
-// and the same great-circle interpolation, so the panel behaves like a real
-// client of the Mission Computer Core until a WebSocket bridge replaces it.
+// Offline fallback used by App.tsx when the Core WebSocket server isn't
+// reachable. Mirrors core/src/main/java/avio/domain and avio/service (same
+// sample route, same great-circle interpolation) so the demo mode looks like
+// a real feed even without the Java server running.
 export const SAMPLE_ROUTE: Route = {
   id: 'RT-1',
   name: 'Ankara-Istanbul-Izmir-Antalya',

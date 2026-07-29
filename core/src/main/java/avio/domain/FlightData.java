@@ -1,6 +1,7 @@
 package avio.domain;
 
 import java.time.Instant;
+import java.util.Locale;
 
 public final class FlightData {
     private final Instant timestamp;
@@ -29,7 +30,7 @@ public final class FlightData {
 
     @Override
     public String toString() {
-        return String.format("FlightData[t=%s lat=%.4f lon=%.4f alt=%.0fm spd=%.0fkt hdg=%.0f°]",
+        return String.format(Locale.US, "FlightData[t=%s lat=%.4f lon=%.4f alt=%.0fm spd=%.0fkt hdg=%.0f°]",
                 timestamp, latitude, longitude, altitudeMeters, speedKts, headingDeg);
     }
 }

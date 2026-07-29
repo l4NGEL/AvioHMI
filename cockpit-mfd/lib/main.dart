@@ -9,12 +9,16 @@ void main() {
 }
 
 class AvioHmiCockpitApp extends StatelessWidget {
-  const AvioHmiCockpitApp({super.key});
+  /// Overridable for tests, so widget tests don't open a real socket
+  /// connection (and its internal timers) just to render the UI.
+  final FlightState? flightState;
+
+  const AvioHmiCockpitApp({super.key, this.flightState});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => FlightState()..start(),
+      create: (_) => flightState ?? (FlightState()..start()),
       child: MaterialApp(
         title: 'AvioHMI Cockpit MFD',
         debugShowCheckedModeBanner: false,

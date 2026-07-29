@@ -1,10 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cockpit_mfd/main.dart';
+import 'package:cockpit_mfd/models/flight_state.dart';
 
 void main() {
   testWidgets('Cockpit MFD shows PFD page with page-select buttons', (WidgetTester tester) async {
-    await tester.pumpWidget(const AvioHmiCockpitApp());
+    // Inject a FlightState that never calls start(), so the test renders the
+    // UI without opening a real socket connection.
+    await tester.pumpWidget(AvioHmiCockpitApp(flightState: FlightState()));
     await tester.pump();
 
     expect(find.text('PFD'), findsOneWidget);

@@ -23,24 +23,57 @@ Every module above has been built and verified to run on this machine (see
 ## Architecture
 
 ```
-Ground Control (React/TS) ── HTTP/WebSocket (planned) ──┐
-                                                          v
-                                        Mission Computer Core (Java)
-                                        ├─ domain: Waypoint, Route, FlightData
-                                        ├─ data:   Route/Telemetry repositories
-                                        └─ service: EventBus, SensorSimulator,
-                                                     NavigationService
-                                                          ^
-                              Cockpit MFD (Flutter, touch) ── same telemetry shape
+                         ws://localhost:8765
+Ground Control (React/TS) ───────────┐
+                                       v
+                    Mission Computer Core (Java) — avio.app.TelemetryServerApp
+                    ├─ domain:    Waypoint, Route, FlightData
+                    ├─ data:      Route/Telemetry repositories
+                    ├─ service:   EventBus, SensorSimulator, NavigationService
+                    └─ transport: WebSocketServer (hand-rolled RFC 6455) + JSON
+                                       ^
+Cockpit MFD (Flutter, touch) ─────────┘
+                         ws://localhost:8765
 
 video-processing/ (CUDA) processes camera/sensor frames independently and
 would feed the AR overlay in the Cockpit MFD and Ground Control views.
 ```
 
-The Core, Cockpit MFD, and Ground Control currently each run their own local
-simulation of the same sample route (Ankara → Istanbul → Izmir → Antalya) so
-every module can be demoed standalone. Wiring them together over a real
-WebSocket/gRPC link is the natural next step (see below).
+Core is the single source of truth: `TelemetryServerApp` runs the route
+simulation and broadcasts every tick as JSON over a plain-JDK WebSocket
+server (no external libraries — handshake, framing, and close are all
+hand-written in `avio.transport`). On connect, a client first gets a
+`{"type":"route",...}` message with the waypoints, then a `{"type":"telemetry",...}`
+message roughly every 500ms with position/speed/heading/roll/pitch and the
+distance/ETA to the next waypoint. Roll and pitch are derived server-side
+from the heading/altitude delta between ticks (bank angle from turn rate,
+pitch from climb rate) — Cockpit MFD's attitude indicator is driven by real
+numbers from Core, not a local guess.
+
+- **Ground Control** connects via a `useTelemetrySocket` hook with
+  auto-reconnect. If Core isn't reachable within 3s it falls back to the
+  same local simulator used before this was wired up (`mock/telemetryFeed.ts`),
+  so the panel is still demoable standalone — a "● LIVE — Core" vs
+  "● DEMO — Core not detected" badge shows which one is active.
+- **Cockpit MFD**'s `FlightState` connects the same way (`web_socket_channel`),
+  with a 2s reconnect loop and a "LINK/NO LINK" indicator in the page-button row.
+
+## Running the connected system
+
+```bash
+cd core && ./build.sh && ./serve.sh    # starts ws://localhost:8765
+```
+
+Then, in separate terminals:
+```bash
+cd ground-control && npm install && npm run dev     # open http://localhost:5173
+cd cockpit-mfd && flutter pub get && flutter run
+```
+
+Ground Control's badge should read "● LIVE — Core" and Cockpit MFD's PFD page
+should show the same aircraft moving along the same route.
+
+## Running each module standalone
 
 ## Running each module
 
@@ -48,7 +81,8 @@ WebSocket/gRPC link is the natural next step (see below).
 ```bash
 cd core
 ./build.sh   # compiles everything into out/
-./run.sh     # runs the mission computer simulation
+./run.sh     # console demo: runs the simulation once, prints ticks (MissionComputerApp)
+./serve.sh   # server: broadcasts the same simulation over ws://localhost:8765, looping forever
 ./test.sh    # runs the NavigationService smoke test
 ```
 
@@ -81,9 +115,6 @@ docker compose up -d postgres
 
 ## Roadmap / next steps
 
-- Replace each module's local simulator with a shared telemetry feed from
-  Core over WebSocket, so Cockpit MFD and Ground Control show the same
-  live aircraft.
 - Add a GStreamer/FFmpeg pipeline in `video-processing/` feeding real camera
   frames into the CUDA kernel, then compositing the result as an AR overlay.
 - Persist routes/telemetry from Core into the PostgreSQL/PostGIS schema in

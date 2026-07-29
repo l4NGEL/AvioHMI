@@ -36,6 +36,13 @@ public final class SensorSimulator {
         return finished;
     }
 
+    /** Rewinds to the start of the route so the same simulator can loop indefinitely. */
+    public void reset() {
+        legIndex = 0;
+        legProgress = 0.0;
+        finished = false;
+    }
+
     /** The waypoint the aircraft is currently flying toward. */
     public Waypoint getCurrentTarget() {
         List<Waypoint> waypoints = route.getWaypoints();

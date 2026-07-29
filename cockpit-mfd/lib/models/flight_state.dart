@@ -1,42 +1,95 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// Holds the aircraft's current telemetry and simulates a live sensor feed.
-///
-/// In a real deployment this would be fed by the Mission Computer Core
-/// (see core/) over a WebSocket/gRPC link instead of the internal Timer.
+/// Holds the aircraft's current telemetry, fed live over a WebSocket from the
+/// Mission Computer Core (see core/src/main/java/avio/app/TelemetryServerApp).
+/// Reconnects automatically if the Core server isn't up yet or drops.
 class FlightState extends ChangeNotifier {
-  double speedKts = 260;
-  double altitudeFt = 8000;
-  double headingDeg = 45;
+  final String url;
+
+  FlightState({this.url = 'ws://localhost:8765'});
+
+  double speedKts = 0;
+  double altitudeMeters = 0;
+  double headingDeg = 0;
   double rollDeg = 0;
   double pitchDeg = 0;
-  double nextWaypointDistanceKm = 120;
-  String nextWaypointName = 'Istanbul';
+  double nextWaypointDistanceKm = 0;
+  double etaMinutes = 0;
+  String nextWaypointName = '';
+  bool connected = false;
 
-  Timer? _timer;
-  final Random _random = Random();
+  WebSocketChannel? _channel;
+  StreamSubscription? _subscription;
+  Timer? _reconnectTimer;
+  bool _disposed = false;
 
   void start() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 500), (_) => _tick());
+    _connect();
   }
 
-  void _tick() {
-    headingDeg = (headingDeg + 1.5) % 360;
-    rollDeg = 15 * sin(DateTime.now().millisecondsSinceEpoch / 2000);
-    pitchDeg = 4 * sin(DateTime.now().millisecondsSinceEpoch / 3500);
-    speedKts += (_random.nextDouble() - 0.5) * 2;
-    altitudeFt += (_random.nextDouble() - 0.5) * 20;
-    nextWaypointDistanceKm = max(0, nextWaypointDistanceKm - 0.4);
+  void _connect() {
+    if (_disposed) return;
+    try {
+      final channel = WebSocketChannel.connect(Uri.parse(url));
+      _channel = channel;
+      _subscription = channel.stream.listen(
+        _onMessage,
+        onDone: _onDisconnected,
+        onError: (_) => _onDisconnected(),
+        cancelOnError: true,
+      );
+    } catch (_) {
+      _scheduleReconnect();
+    }
+  }
+
+  void _onMessage(dynamic raw) {
+    if (_disposed) return;
+    try {
+      final msg = jsonDecode(raw as String) as Map<String, dynamic>;
+      if (msg['type'] != 'telemetry') return;
+
+      final data = msg['data'] as Map<String, dynamic>;
+      final next = msg['nextWaypoint'] as Map<String, dynamic>;
+
+      speedKts = (data['speedKts'] as num).toDouble();
+      altitudeMeters = (data['altitudeMeters'] as num).toDouble();
+      headingDeg = (data['headingDeg'] as num).toDouble();
+      rollDeg = (data['rollDeg'] as num? ?? 0).toDouble();
+      pitchDeg = (data['pitchDeg'] as num? ?? 0).toDouble();
+      nextWaypointName = next['name'] as String;
+      nextWaypointDistanceKm = (msg['distanceToNextKm'] as num).toDouble();
+      etaMinutes = (msg['etaMinutes'] as num? ?? 0).toDouble();
+      connected = true;
+      notifyListeners();
+    } catch (_) {
+      // Malformed frame; wait for the next one rather than tearing down the connection.
+    }
+  }
+
+  void _onDisconnected() {
+    if (_disposed) return;
+    connected = false;
     notifyListeners();
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 2), _connect);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _disposed = true;
+    _reconnectTimer?.cancel();
+    _subscription?.cancel();
+    _channel?.sink.close();
     super.dispose();
   }
 }

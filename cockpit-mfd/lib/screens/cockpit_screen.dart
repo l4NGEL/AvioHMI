@@ -29,7 +29,7 @@ class _CockpitScreenState extends State<CockpitScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildPageButtons(),
+            _buildPageButtons(flight),
             const Divider(color: Colors.white24, height: 1),
             Expanded(child: _buildPageContent(flight)),
           ],
@@ -38,29 +38,44 @@ class _CockpitScreenState extends State<CockpitScreen> {
     );
   }
 
-  Widget _buildPageButtons() {
+  Widget _buildPageButtons(FlightState flight) {
     return Row(
-      children: MfdPage.values.map((page) {
-        final selected = page == _page;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() => _page = page),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              color: selected ? Colors.green.shade900 : Colors.grey.shade900,
-              alignment: Alignment.center,
-              child: Text(
-                page.name.toUpperCase(),
-                style: TextStyle(
-                  color: selected ? Colors.greenAccent : Colors.white54,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
+      children: [
+        ...MfdPage.values.map((page) {
+          final selected = page == _page;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _page = page),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                color: selected ? Colors.green.shade900 : Colors.grey.shade900,
+                alignment: Alignment.center,
+                child: Text(
+                  page.name.toUpperCase(),
+                  style: TextStyle(
+                    color: selected ? Colors.greenAccent : Colors.white54,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
                 ),
               ),
             ),
+          );
+        }),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          color: Colors.grey.shade900,
+          alignment: Alignment.center,
+          child: Text(
+            flight.connected ? '● LINK' : '○ NO LINK',
+            style: TextStyle(
+              color: flight.connected ? Colors.greenAccent : Colors.redAccent,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        );
-      }).toList(),
+        ),
+      ],
     );
   }
 
@@ -87,7 +102,7 @@ class _CockpitScreenState extends State<CockpitScreen> {
               const SizedBox(width: 16),
               AttitudeIndicator(rollDeg: flight.rollDeg, pitchDeg: flight.pitchDeg),
               const SizedBox(width: 16),
-              TapeGauge(value: flight.altitudeFt, label: 'ALT ft', accentColor: Colors.cyanAccent, step: 100),
+              TapeGauge(value: flight.altitudeMeters, label: 'ALT m', accentColor: Colors.cyanAccent, step: 100),
             ],
           ),
         ),
@@ -112,7 +127,7 @@ class _CockpitScreenState extends State<CockpitScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${flight.nextWaypointDistanceKm.toStringAsFixed(0)} km  •  HDG ${flight.headingDeg.toStringAsFixed(0)}°',
+            '${flight.nextWaypointDistanceKm.toStringAsFixed(0)} km  •  ETA ${flight.etaMinutes.toStringAsFixed(0)} min  •  HDG ${flight.headingDeg.toStringAsFixed(0)}°',
             style: const TextStyle(color: Colors.white54, fontSize: 16),
           ),
         ],
@@ -123,10 +138,11 @@ class _CockpitScreenState extends State<CockpitScreen> {
   Widget _buildSysPage(FlightState flight) {
     final rows = <(String, String)>[
       ('Speed', '${flight.speedKts.toStringAsFixed(1)} kt'),
-      ('Altitude', '${flight.altitudeFt.toStringAsFixed(0)} ft'),
+      ('Altitude', '${flight.altitudeMeters.toStringAsFixed(0)} m'),
       ('Heading', '${flight.headingDeg.toStringAsFixed(1)}°'),
       ('Roll', '${flight.rollDeg.toStringAsFixed(1)}°'),
       ('Pitch', '${flight.pitchDeg.toStringAsFixed(1)}°'),
+      ('Link', flight.connected ? 'CONNECTED' : 'RECONNECTING…'),
     ];
     return Padding(
       padding: const EdgeInsets.all(24),
