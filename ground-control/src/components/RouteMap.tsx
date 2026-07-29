@@ -1,18 +1,28 @@
-import type { Route, FlightData } from '../types/telemetry';
+import type { Route, FlightData, Waypoint } from '../types/telemetry';
+import { TURKEY_COASTLINE } from '../data/turkeyCoastline';
+
+export interface AircraftMarker {
+  aircraftId: string;
+  callsign: string;
+  data: FlightData;
+}
 
 interface Props {
   route: Route;
-  current: FlightData;
+  aircraftList: AircraftMarker[];
+  selectedAircraftId?: string | null;
   trail?: FlightData[];
+  onWaypointClick?: (waypoint: Waypoint) => void;
+  onAircraftClick?: (aircraftId: string) => void;
 }
 
-const PADDING = 34;
+const PADDING = 24;
 const WIDTH = 480;
 const HEIGHT = 320;
 
-export function RouteMap({ route, current, trail = [] }: Props) {
-  const lats = route.waypoints.map((w) => w.lat);
-  const lons = route.waypoints.map((w) => w.lon);
+export function RouteMap({ route, aircraftList, selectedAircraftId, trail = [], onWaypointClick, onAircraftClick }: Props) {
+  const lats = [...route.waypoints.map((w) => w.lat), ...TURKEY_COASTLINE.map((p) => p.lat)];
+  const lons = [...route.waypoints.map((w) => w.lon), ...TURKEY_COASTLINE.map((p) => p.lon)];
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLon = Math.min(...lons);
@@ -24,8 +34,8 @@ export function RouteMap({ route, current, trail = [] }: Props) {
     return [x, y];
   };
 
-  const points = route.waypoints.map((w) => project(w.lat, w.lon));
-  const [acX, acY] = project(current.lat, current.lon);
+  const routePoints = route.waypoints.map((w) => project(w.lat, w.lon));
+  const coastlinePoints = TURKEY_COASTLINE.map((p) => project(p.lat, p.lon));
   const trailPoints = trail.map((t) => project(t.lat, t.lon));
 
   return (
@@ -44,8 +54,15 @@ export function RouteMap({ route, current, trail = [] }: Props) {
       </defs>
       <rect x={0} y={0} width={WIDTH} height={HEIGHT} fill="url(#grid)" />
 
+      <polygon
+        points={coastlinePoints.map((p) => p.join(',')).join(' ')}
+        fill="#141d29"
+        stroke="#2a3d52"
+        strokeWidth={1.5}
+      />
+
       <polyline
-        points={points.map((p) => p.join(',')).join(' ')}
+        points={routePoints.map((p) => p.join(',')).join(' ')}
         fill="none"
         stroke="#2f6f4f"
         strokeWidth={2}
@@ -63,10 +80,14 @@ export function RouteMap({ route, current, trail = [] }: Props) {
       )}
 
       {route.waypoints.map((w, i) => {
-        const [x, y] = points[i];
+        const [x, y] = routePoints[i];
         return (
-          <g key={w.name}>
-            <circle cx={x} cy={y} r={5} fill="#57b894" />
+          <g
+            key={w.name}
+            onClick={() => onWaypointClick?.(w)}
+            style={{ cursor: onWaypointClick ? 'pointer' : 'default' }}
+          >
+            <circle cx={x} cy={y} r={6} fill="#57b894" />
             <text x={x + 8} y={y + 4} fill="#9fb8ac" fontSize={11}>
               {w.name}
             </text>
@@ -74,10 +95,21 @@ export function RouteMap({ route, current, trail = [] }: Props) {
         );
       })}
 
-      <g transform={`translate(${acX}, ${acY}) rotate(${current.headingDeg})`}>
-        <circle r={12} fill="none" stroke="#ffd166" strokeWidth={1} opacity={0.4} />
-        <polygon points="0,-9 6,7 0,3 -6,7" fill="#ffd166" stroke="#402d00" strokeWidth={1} />
-      </g>
+      {aircraftList.map((a) => {
+        const [x, y] = project(a.data.lat, a.data.lon);
+        const isSelected = a.aircraftId === selectedAircraftId;
+        return (
+          <g
+            key={a.aircraftId}
+            transform={`translate(${x}, ${y}) rotate(${a.data.headingDeg})`}
+            onClick={() => onAircraftClick?.(a.aircraftId)}
+            style={{ cursor: onAircraftClick ? 'pointer' : 'default' }}
+          >
+            {isSelected && <circle r={12} fill="none" stroke="#ffd166" strokeWidth={1} opacity={0.5} />}
+            <polygon points="0,-9 6,7 0,3 -6,7" fill={isSelected ? '#ffd166' : '#8fa6ba'} stroke="#12161c" strokeWidth={1} />
+          </g>
+        );
+      })}
     </svg>
   );
 }

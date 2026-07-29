@@ -1,6 +1,5 @@
 package avio.service;
 
-import avio.data.TelemetryRepository;
 import avio.domain.FlightData;
 import avio.domain.Route;
 import avio.domain.Waypoint;
@@ -11,24 +10,19 @@ import java.util.List;
 /**
  * Interpolates a straight line between consecutive waypoints of a route and
  * emits a FlightData tick each time step() is called, simulating a sensor feed.
+ * Pure physics/geometry only — recording history and publishing ticks is the
+ * caller's responsibility (see MissionComputerApp, TelemetryServerApp).
  */
 public final class SensorSimulator {
-    private final String aircraftId;
     private final Route route;
-    private final EventBus eventBus;
-    private final TelemetryRepository telemetryRepository;
     private final double speedKts;
 
     private int legIndex = 0;
     private double legProgress = 0.0;
     private boolean finished = false;
 
-    public SensorSimulator(String aircraftId, Route route, EventBus eventBus,
-                            TelemetryRepository telemetryRepository, double speedKts) {
-        this.aircraftId = aircraftId;
+    public SensorSimulator(Route route, double speedKts) {
         this.route = route;
-        this.eventBus = eventBus;
-        this.telemetryRepository = telemetryRepository;
         this.speedKts = speedKts;
     }
 
@@ -41,6 +35,20 @@ public final class SensorSimulator {
         legIndex = 0;
         legProgress = 0.0;
         finished = false;
+    }
+
+    /** Jumps to an arbitrary point on the route, e.g. to stagger multiple aircraft. */
+    public void seek(int legIndex, double legProgress) {
+        int lastLeg = route.getWaypoints().size() - 2;
+        this.legIndex = Math.max(0, Math.min(legIndex, lastLeg));
+        this.legProgress = legProgress;
+        this.finished = false;
+    }
+
+    /** Fraction of the whole route flown so far, 0 (start) to 1 (finished). */
+    public double totalProgress() {
+        int legs = route.getWaypoints().size() - 1;
+        return (legIndex + legProgress) / legs;
     }
 
     /** The waypoint the aircraft is currently flying toward. */
@@ -74,10 +82,7 @@ public final class SensorSimulator {
         double alt = from.getAltitudeMeters() + (to.getAltitudeMeters() - from.getAltitudeMeters()) * t;
         double heading = bearingDeg(from, to);
 
-        FlightData data = new FlightData(Instant.now(), lat, lon, alt, speedKts, heading);
-        telemetryRepository.record(aircraftId, data);
-        eventBus.publish(aircraftId, data);
-        return data;
+        return new FlightData(Instant.now(), lat, lon, alt, speedKts, heading);
     }
 
     private double bearingDeg(Waypoint from, Waypoint to) {

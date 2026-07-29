@@ -14,7 +14,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function TelemetryPanel({ tick }: Props) {
-  const { data, callsign, nextWaypoint, distanceToNextKm, etaMinutes } = tick;
+  const { data, callsign, nextWaypoint, distanceToNextKm, etaMinutes, fuelPercent } = tick;
   return (
     <div className="telemetry-panel">
       <h2>{callsign}</h2>
@@ -23,6 +23,7 @@ export function TelemetryPanel({ tick }: Props) {
         <Stat label="Altitude" value={`${data.altitudeMeters.toFixed(0)} m`} />
         <Stat label="Heading" value={`${data.headingDeg.toFixed(0)}°`} />
         <Stat label="Position" value={`${data.lat.toFixed(3)}, ${data.lon.toFixed(3)}`} />
+        <Stat label="Fuel" value={`${fuelPercent.toFixed(0)}%`} />
       </div>
       <div className="next-waypoint">
         Next: <strong>{nextWaypoint.name}</strong> · {distanceToNextKm.toFixed(1)} km · ETA{' '}

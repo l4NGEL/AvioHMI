@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Route, TelemetryTick } from '../types/telemetry';
 
 type ServerMessage =
@@ -10,10 +10,14 @@ export type ConnectionStatus = 'connecting' | 'live' | 'offline';
 const RECONNECT_DELAY_MS = 2000;
 const MAX_BUFFERED_TICKS = 200;
 
-/** Connects to the Mission Computer Core's telemetry WebSocket and auto-reconnects on drop. */
+/**
+ * Connects to the Mission Computer Core's telemetry WebSocket and auto-reconnects
+ * on drop. Core can broadcast multiple aircraft at once, so history is keyed by
+ * aircraftId rather than being a single flat array.
+ */
 export function useTelemetrySocket(url: string) {
   const [route, setRoute] = useState<Route | null>(null);
-  const [ticks, setTicks] = useState<TelemetryTick[]>([]);
+  const [historiesByAircraft, setHistoriesByAircraft] = useState<Record<string, TelemetryTick[]>>({});
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
 
   useEffect(() => {
@@ -34,7 +38,10 @@ export function useTelemetrySocket(url: string) {
         if (msg.type === 'route') {
           setRoute(msg.route);
         } else if (msg.type === 'telemetry') {
-          setTicks((prev) => [...prev, msg].slice(-MAX_BUFFERED_TICKS));
+          setHistoriesByAircraft((prev) => {
+            const existing = prev[msg.aircraftId] ?? [];
+            return { ...prev, [msg.aircraftId]: [...existing, msg].slice(-MAX_BUFFERED_TICKS) };
+          });
         }
       };
 
@@ -58,5 +65,5 @@ export function useTelemetrySocket(url: string) {
     };
   }, [url]);
 
-  return { route, ticks, status };
+  return { route, historiesByAircraft, status };
 }

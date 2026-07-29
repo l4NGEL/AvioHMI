@@ -32,7 +32,7 @@ public final class MissionComputerApp {
         String aircraftId = "AC-101";
         String callsign = "AVIO101";
 
-        SensorSimulator simulator = new SensorSimulator(aircraftId, route, eventBus, telemetryRepository, 420.0);
+        SensorSimulator simulator = new SensorSimulator(route, 420.0);
 
         eventBus.subscribe((id, data) -> System.out.printf(
                 "[%s/%s] %s%n", id, callsign, data));
@@ -46,7 +46,9 @@ public final class MissionComputerApp {
 
         System.out.println("Mission Computer Core starting simulation for route: " + route.getName());
         while (!simulator.isFinished()) {
-            simulator.step(0.25);
+            FlightData data = simulator.step(0.25);
+            telemetryRepository.record(aircraftId, data);
+            eventBus.publish(aircraftId, data);
         }
 
         FlightData last = telemetryRepository.latest(aircraftId);

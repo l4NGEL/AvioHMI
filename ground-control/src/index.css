@@ -45,8 +45,30 @@ body {
   font-size: 13px;
 }
 
-.status-badge {
+.mode-toggle {
   margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.mode-toggle button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mode-toggle button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(87, 184, 148, 0.1);
+}
+
+.status-badge {
   font-size: 12px;
   letter-spacing: 0.3px;
 }
@@ -85,8 +107,16 @@ body {
   padding: 16px;
 }
 
-.map-card {
+.map-column {
   flex: 3 1 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.map-card {
+  position: relative;
+  flex: 1;
   min-height: 420px;
   display: flex;
 }
@@ -183,4 +213,309 @@ body {
 
 .route-map {
   display: block;
+}
+
+/* Alert banner */
+.alert-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 24px 16px;
+}
+
+.alert-chip {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.alert-overspeed {
+  color: #ff8080;
+  border-color: #7a2c2c;
+  background: rgba(255, 90, 90, 0.08);
+}
+
+.alert-off_course {
+  color: #e0a458;
+  border-color: #7a5a2c;
+  background: rgba(224, 164, 88, 0.08);
+}
+
+.alert-low_fuel {
+  color: #ffd166;
+  border-color: #7a6a2c;
+  background: rgba(255, 209, 102, 0.08);
+}
+
+/* Aircraft fleet list */
+.aircraft-list {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.aircraft-list h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.aircraft-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aircraft-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.aircraft-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.aircraft-row.selected {
+  border-color: var(--accent);
+  background: rgba(87, 184, 148, 0.08);
+}
+
+.aircraft-row .callsign {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.aircraft-row .mini-stats {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Telemetry chart */
+.telemetry-chart-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.telemetry-chart-card h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chart-legend-alt {
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.chart-legend-spd {
+  color: #ffd166;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.chart-empty {
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+/* Sensor feed */
+.sensor-feed-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.sensor-feed-card h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sensor-feed-frame {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+}
+
+.sensor-feed-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.sensor-feed-offline {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(11, 15, 20, 0.9);
+}
+
+/* Waypoint popup */
+.waypoint-popup {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 12px 14px;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.waypoint-popup-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.waypoint-popup-name {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 6px;
+  padding-right: 16px;
+}
+
+.waypoint-popup-row {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+/* Playback controls */
+.playback-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.playback-controls button {
+  background: rgba(87, 184, 148, 0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.playback-controls input[type='range'] {
+  flex: 1;
+}
+
+.playback-status {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: ui-monospace, Consolas, monospace;
+  white-space: nowrap;
+}
+
+/* Login gate */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 280px;
+  padding: 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 22px;
+  text-align: center;
+}
+
+.login-subtitle {
+  margin: 0 0 8px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.login-card input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.login-card button {
+  background: var(--accent);
+  border: none;
+  color: #06110c;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.login-error {
+  color: #ff8080;
+  font-size: 12px;
+  text-align: center;
+}
+
+.login-hint {
+  margin: 4px 0 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 11px;
 }

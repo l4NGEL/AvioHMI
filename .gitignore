@@ -16,6 +16,7 @@ cockpit-mfd/.metadata
 video-processing/*.exe
 video-processing/*.pgm
 video-processing/*.png
+video-processing/*.bmp
 video-processing/*.o
 video-processing/*.obj
 video-processing/*.exp

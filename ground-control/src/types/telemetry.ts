@@ -27,4 +27,15 @@ export interface TelemetryTick {
   nextWaypoint: Waypoint;
   distanceToNextKm: number;
   etaMinutes: number;
+  fuelPercent: number;
+}
+
+/** A single point from Core's /history endpoint (Postgres-backed playback). */
+export interface HistoryPoint {
+  timestamp: string;
+  lat: number;
+  lon: number;
+  altitudeMeters: number;
+  speedKts: number;
+  headingDeg: number;
 }

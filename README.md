@@ -13,26 +13,22 @@
 
 </div>
 
-AvioHMI is a mission computer and human-machine-interface suite for aircraft
-telemetry: a Java "brain" simulates an aircraft flying a route and streams its
-position, speed, heading, and attitude live over WebSocket to a touch-screen
-cockpit display and a web-based ground-control dashboard, while a separate
-CUDA pipeline demonstrates GPU-accelerated sensor image processing. It's built
-the way an embedded HMI product would be — layered domain logic, a real
-network protocol between components, graceful degradation when a link drops,
+AvioHMI is a mission computer and ground-control suite for a small fleet of
+simulated aircraft. A Java "brain" flies three aircraft along a shared route
+and streams their position, speed, heading, attitude, and fuel state live
+over WebSocket to a web-based ground-control dashboard and a touch-screen
+cockpit display, while a CUDA pipeline demonstrates GPU-accelerated sensor
+image processing feeding a live HUD overlay. It's built the way an embedded
+HMI product would be — layered domain logic, a real network protocol between
+components, persistence with replay, graceful degradation when a link drops,
 and a CI pipeline that builds every module.
 
 ## Screenshots
 
+![Ground Control — fleet view with alerts, chart, and sensor feed](docs/screenshots/ground-control.png)
+
 <table>
 <tr>
-<td width="50%">
-
-**Ground Control** — live route map, telemetry, mission log
-
-![Ground Control](docs/screenshots/ground-control.png)
-
-</td>
 <td width="50%">
 
 **Cockpit MFD** — touch PFD with attitude indicator & tapes
@@ -40,46 +36,86 @@ and a CI pipeline that builds every module.
 ![Cockpit MFD](docs/screenshots/cockpit-mfd-pfd.png)
 
 </td>
-</tr>
-</table>
+<td width="50%">
 
-<details>
-<summary>Cockpit MFD — NAV page</summary>
+**Cockpit MFD** — NAV page
 
 ![Cockpit MFD NAV page](docs/screenshots/cockpit-mfd-nav.png)
 
-</details>
+</td>
+</tr>
+</table>
+
+## Features
+
+- **Multi-aircraft simulation** — three aircraft (`AVIO101/102/103`) fly the
+  same route with distinct personalities: one flies clean, one periodically
+  drifts off-course and blips over the speed limit, one is a chronic
+  speeder. Click any aircraft on the map or in the fleet list to inspect it.
+- **Live alerts** — overspeed, off-course (cross-track distance from the
+  planned route), and low-fuel warnings computed from real telemetry and
+  surfaced as a banner.
+- **Altitude/speed history chart** and a **mission log** for the selected
+  aircraft.
+- **Waypoint inspector** — click a waypoint on the map for its coordinates
+  and altitude.
+- **History playback** — telemetry is persisted to PostgreSQL/PostGIS; a
+  scrubber lets you rewind and replay any aircraft's recorded flight.
+- **CUDA sensor feed** — Core periodically re-invokes the CUDA HUD demo with
+  live telemetry, and Ground Control polls the generated frame.
+- **Resilient clients** — both Ground Control and Cockpit MFD auto-reconnect
+  and degrade gracefully (a local simulator standing in for Ground Control,
+  a LINK/NO LINK indicator on the MFD) if Core isn't reachable.
+- **Demo operator login** — a UX-only sign-in screen for the "ops center"
+  feel (see the security note below).
 
 ## Architecture
 
-```
-                         ws://localhost:8765
-Ground Control (React/TS) ───────────┐
-                                       v
-                    Mission Computer Core (Java) — avio.app.TelemetryServerApp
-                    ├─ domain:    Waypoint, Route, FlightData
-                    ├─ data:      Route/Telemetry repositories
-                    ├─ service:   EventBus, SensorSimulator, NavigationService
-                    └─ transport: WebSocketServer (hand-rolled RFC 6455) + JSON
-                                       ^
-Cockpit MFD (Flutter, touch) ─────────┘
-                         ws://localhost:8765
+```mermaid
+flowchart LR
+    subgraph Core["Mission Computer Core (Java)"]
+        SIM["SensorSimulator × 3\nAVIO101 / 102 / 103"]
+        WS["WebSocketServer\n:8765"]
+        HTTPSRV["TelemetryHttpServer\n:8766"]
+        REPO["TelemetryRepository"]
+        HUDT["HUD overlay thread"]
+        SIM --> WS
+        SIM --> REPO
+        HUDT --> HTTPSRV
+    end
 
-video-processing/ (CUDA) processes camera/sensor frames independently and
-would feed the AR overlay in the Cockpit MFD and Ground Control views.
+    CUDA["video-processing/edge_detect.exe\nCUDA Sobel + HUD compositing"]
+    PG[("PostgreSQL / PostGIS")]
+    GC["Ground Control (React)"]
+    MFD["Cockpit MFD (Flutter)"]
+
+    HUDT -- "heading / speed / altitude" --> CUDA
+    CUDA -- "live_overlay.bmp" --> HUDT
+    REPO <--> PG
+
+    WS -- "route + telemetry JSON" --> GC
+    WS -- "route + telemetry JSON" --> MFD
+    HTTPSRV -- "/history (playback)" --> GC
+    HTTPSRV -- "/overlay.bmp (sensor feed)" --> GC
 ```
 
 Core is the single source of truth. `TelemetryServerApp` runs the route
-simulation and broadcasts every tick as JSON over a plain-JDK WebSocket
-server — no external libraries; the handshake, frame reading/writing, and
-close sequence are all hand-written in `avio.transport`, since the project
-has no Maven/Gradle available. On connect, a client first gets a
-`{"type":"route",...}` message with the waypoints, then a `{"type":"telemetry",...}`
-message roughly every 500ms with position/speed/heading/roll/pitch and the
-distance/ETA to the next waypoint. Roll and pitch are derived server-side
-from the heading/altitude delta between ticks (bank angle from turn rate,
-pitch from climb rate), so the cockpit's attitude indicator is driven by real
-numbers from Core, not a local guess.
+simulation for all three aircraft and broadcasts every tick as JSON over a
+plain-JDK WebSocket server — no external libraries; the handshake, framing,
+and close sequence are all hand-written in `avio.transport`, since the
+project has no Maven/Gradle available. On connect, a client first gets a
+`{"type":"route",...}` message with the waypoints, then a
+`{"type":"telemetry",...}` message per aircraft roughly every 500ms with
+position/speed/heading/roll/pitch/fuel and the distance/ETA to the next
+waypoint. Roll and pitch are derived server-side from the heading/altitude
+delta between ticks; fuel depletes over each lap and resets when it loops.
+
+Telemetry is written to PostgreSQL/PostGIS when reachable (`docker compose up
+-d postgres`); otherwise Core falls back to an in-memory store and says so on
+startup. A small `com.sun.net.httpserver.HttpServer` (also JDK-only) exposes
+`/history` for playback and `/overlay.bmp` — a frame from
+`video-processing/edge_detect.exe`, re-run every few seconds with the lead
+aircraft's live heading/speed/altitude baked into the HUD.
 
 Both clients are resilient to Core being unavailable:
 - **Ground Control** connects via a `useTelemetrySocket` hook with
@@ -90,31 +126,38 @@ Both clients are resilient to Core being unavailable:
   `web_socket_channel`, with its own 2s reconnect loop and a LINK/NO LINK
   indicator in the page-button row.
 
+> **Security note:** Ground Control's login screen (`components/LoginGate.tsx`)
+> is a UX-only demo gate — fixed credentials shown right on the screen, no
+> backend check, no hashing, no session token. It exists to give the
+> dashboard an "ops center" feel and must not be mistaken for real access
+> control.
+
 ## Modules
 
 | Module | Stack | What it does |
 |---|---|---|
-| [`core/`](core) | Java 17, layered architecture | Simulates the aircraft along a route and serves live telemetry over a hand-rolled WebSocket server |
+| [`core/`](core) | Java 17, layered architecture | Simulates 3 aircraft along a route; serves live telemetry (WebSocket), history (HTTP), and the HUD overlay (HTTP) |
 | [`cockpit-mfd/`](cockpit-mfd) | Flutter | Touch multi-function display: PFD (attitude/speed/altitude/heading), NAV, and SYS pages |
-| [`ground-control/`](ground-control) | React + TypeScript + Vite | Live route map with flight trail, telemetry panel, and mission log |
-| [`video-processing/`](video-processing) | CUDA (nvcc) | GPU-accelerated Sobel edge detection on a synthetic sensor frame |
-| [`db/`](db) + `docker-compose.yml` | PostgreSQL + PostGIS | Schema for persisting routes and telemetry history |
+| [`ground-control/`](ground-control) | React + TypeScript + Vite | Fleet map with alerts, telemetry/chart panels, mission log, playback, and CUDA sensor feed |
+| [`video-processing/`](video-processing) | CUDA (nvcc) | GPU-accelerated Sobel edge detection + HUD compositing, driven by live telemetry |
+| [`db/`](db) + `docker-compose.yml` | PostgreSQL + PostGIS | Schema for routes/telemetry, backing history playback |
 | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | GitHub Actions | Builds and tests Core, Ground Control, and Cockpit MFD on every push |
 
 ## Running the connected system
 
 ```bash
-cd core && ./build.sh && ./serve.sh    # starts ws://localhost:8765
+docker compose up -d postgres          # optional but recommended: enables /history playback
+cd core && ./build.sh && ./serve.sh    # starts ws://localhost:8765 and http://localhost:8766
 ```
 
 Then, in separate terminals:
 ```bash
-cd ground-control && npm install && npm run dev     # open http://localhost:5173
+cd ground-control && npm install && npm run dev     # open http://localhost:5173, sign in as operator/aviohmi
 cd cockpit-mfd && flutter pub get && flutter run
 ```
 
 Ground Control's badge should read "● LIVE" and Cockpit MFD's PFD page should
-show the same aircraft moving along the same route.
+show one of the same aircraft moving along the same route.
 
 ## Running each module standalone
 
@@ -122,8 +165,8 @@ show the same aircraft moving along the same route.
 ```bash
 cd core
 ./build.sh   # compiles everything into out/
-./run.sh     # console demo: runs the simulation once, prints ticks (MissionComputerApp)
-./serve.sh   # server: broadcasts the same simulation over ws://localhost:8765, looping forever
+./run.sh     # console demo: runs one aircraft once, prints ticks (MissionComputerApp)
+./serve.sh   # server: broadcasts 3 aircraft over ws://localhost:8765 + http://localhost:8766, looping forever
 ./test.sh    # runs the NavigationService smoke test
 ```
 
@@ -145,23 +188,23 @@ npm run dev
 **Video processing** (CUDA — requires nvcc + an MSVC/gcc host compiler):
 ```bash
 cd video-processing
-./build.bat            # Windows: sets up MSVC env and runs nvcc
-./edge_detect.exe       # writes input.pgm / output.pgm
+./build.bat                          # Windows: sets up MSVC env and runs nvcc
+./edge_detect.exe 250 460 1500 out.bmp   # optional: heading, speed(kt), altitude(m), output path
 ```
 
 **Database**:
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres   # exposes 5433 on the host — 5432 is often already taken locally
 ```
 
 ## Roadmap
 
 - Add a GStreamer/FFmpeg pipeline in `video-processing/` feeding real camera
-  frames into the CUDA kernel, then compositing the result as an AR overlay.
-- Persist routes/telemetry from Core into the PostgreSQL/PostGIS schema in
-  `db/init/001_schema.sql` instead of the in-memory repositories.
+  frames into the CUDA kernel instead of the synthetic sensor tile.
 - Package Cockpit MFD for an embedded Linux + touchscreen target (e.g.
   Raspberry Pi) once Flutter's Linux/embedded toolchain is set up there.
+- Replace the demo login gate with real authentication if this ever needs to
+  be more than a portfolio piece.
 
 ## License
 

@@ -41,17 +41,23 @@ function bearingDeg(a: Waypoint, b: Waypoint): number {
 }
 
 export class TelemetrySimulator {
+  private readonly aircraftId: string;
+  private readonly callsign: string;
+  private readonly route: Route;
+  private readonly speedKts: number;
+  private readonly progressPerTick: number;
+
   private legIndex = 0;
   private legProgress = 0;
   private finished = false;
 
-  constructor(
-    private readonly aircraftId: string,
-    private readonly callsign: string,
-    private readonly route: Route,
-    private readonly speedKts: number,
-    private readonly progressPerTick: number,
-  ) {}
+  constructor(aircraftId: string, callsign: string, route: Route, speedKts: number, progressPerTick: number) {
+    this.aircraftId = aircraftId;
+    this.callsign = callsign;
+    this.route = route;
+    this.speedKts = speedKts;
+    this.progressPerTick = progressPerTick;
+  }
 
   isFinished(): boolean {
     return this.finished;
@@ -100,6 +106,7 @@ export class TelemetrySimulator {
     const next = this.currentTarget();
     const distanceMetersToNext = distanceMeters(data, next);
     const speedMs = this.speedKts * 0.514444;
+    const totalProgress = (this.legIndex + this.legProgress) / (waypoints.length - 1);
 
     return {
       aircraftId: this.aircraftId,
@@ -108,6 +115,7 @@ export class TelemetrySimulator {
       nextWaypoint: next,
       distanceToNextKm: distanceMetersToNext / 1000,
       etaMinutes: speedMs > 0 ? distanceMetersToNext / speedMs / 60 : Infinity,
+      fuelPercent: Math.max(2, 100 * (1 - totalProgress)),
     };
   }
 }

@@ -6,7 +6,9 @@ services:
       POSTGRES_USER: aviohmi
       POSTGRES_PASSWORD: aviohmi
     ports:
-      - "5432:5432"
+      # Host port 5433, not 5432 — this machine already runs a native
+      # Postgres service on 5432 for another project.
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
