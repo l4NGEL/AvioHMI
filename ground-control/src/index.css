@@ -1,15 +1,21 @@
 :root {
-  --bg: #0b0f14;
+  --bg: #0a0d12;
   --panel: #121821;
-  --border: #253040;
-  --text: #d7e2ea;
+  --panel-hover: #161e29;
+  --border: #232e3d;
+  --border-soft: #1a232f;
+  --text: #dbe6ee;
   --text-dim: #7f95a6;
   --accent: #57b894;
+  --accent-soft: rgba(87, 184, 148, 0.12);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.28);
+  --radius: 10px;
 
   color-scheme: dark;
   color: var(--text);
   background: var(--bg);
-  font: 15px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
+  font: 15px/1.5 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -18,6 +24,10 @@
 
 body {
   margin: 0;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(87, 184, 148, 0.06), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(255, 209, 102, 0.04), transparent 55%),
+    var(--bg);
 }
 
 .app {
@@ -30,14 +40,20 @@ body {
   display: flex;
   align-items: baseline;
   gap: 16px;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgba(18, 24, 33, 0.6);
+  backdrop-filter: blur(6px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .app-header h1 {
-  font-size: 20px;
+  font-size: 19px;
   margin: 0;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  font-weight: 700;
 }
 
 .route-name {
@@ -49,27 +65,37 @@ body {
   margin-left: auto;
   display: flex;
   gap: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 3px;
+  border-radius: 7px;
+  border: 1px solid var(--border-soft);
 }
 
 .mode-toggle button {
   background: transparent;
-  border: 1px solid var(--border);
+  border: none;
   color: var(--text-dim);
   font-size: 11px;
-  letter-spacing: 0.5px;
-  padding: 6px 12px;
-  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  padding: 6px 14px;
+  border-radius: 5px;
   cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.mode-toggle button:hover {
+  color: var(--text);
 }
 
 .mode-toggle button.active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(87, 184, 148, 0.1);
+  color: #06150f;
+  background: var(--accent);
 }
 
 .status-badge {
   font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.3px;
 }
 
@@ -87,6 +113,8 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--text-dim);
+  font-size: 13px;
+  letter-spacing: 0.3px;
 }
 
 .app-body {
@@ -95,38 +123,51 @@ body {
   flex-wrap: wrap;
   align-items: stretch;
   gap: 20px;
-  padding: 24px;
+  padding: 24px 28px 32px;
 }
 
+.card,
 .map-card,
 .telemetry-panel,
-.mission-log {
+.mission-log,
+.aircraft-list,
+.telemetry-chart-card,
+.sensor-feed-card,
+.playback-controls {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.telemetry-panel,
+.aircraft-list,
+.telemetry-chart-card,
+.sensor-feed-card {
+  padding: 18px 18px 16px;
 }
 
 .map-column {
   flex: 3 1 480px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .map-card {
   position: relative;
   flex: 1;
-  min-height: 420px;
+  min-height: 460px;
   display: flex;
+  overflow: hidden;
 }
 
 .side-column {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  flex: 1 1 280px;
-  min-width: 280px;
+  gap: 16px;
+  flex: 1 1 300px;
+  min-width: 300px;
 }
 
 .mission-log {
@@ -134,57 +175,82 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 18px 18px 16px;
 }
 
-.mission-log ul {
-  max-height: none;
-  flex: 1;
+h3.section-title,
+.aircraft-list h3,
+.telemetry-chart-card h3,
+.sensor-feed-card h3,
+.mission-log h3 {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+h3.section-title::before,
+.aircraft-list h3::before,
+.telemetry-chart-card h3::before,
+.sensor-feed-card h3::before,
+.mission-log h3::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 2px;
+  display: inline-block;
 }
 
 .telemetry-panel h2 {
-  margin: 0 0 12px;
-  font-size: 16px;
+  margin: 0 0 14px;
+  font-size: 17px;
   color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.2px;
 }
 
 .stat-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 14px;
 }
 
 .stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .stat-label {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.7px;
+  font-weight: 600;
 }
 
 .stat-value {
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 16px;
+  font-size: 17px;
+  font-weight: 500;
 }
 
 .next-waypoint {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
   font-size: 13px;
   color: var(--text-dim);
 }
 
-.mission-log h3 {
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.next-waypoint strong {
+  color: var(--text);
 }
 
 .mission-log ul {
@@ -194,7 +260,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 220px;
+  max-height: none;
+  flex: 1;
   overflow-y: auto;
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;
@@ -204,6 +271,7 @@ body {
   display: flex;
   gap: 10px;
   color: var(--text-dim);
+  padding: 2px 0;
 }
 
 .log-time {
@@ -211,92 +279,89 @@ body {
   flex-shrink: 0;
 }
 
-.route-map {
-  display: block;
-}
-
 /* Alert banner */
 .alert-banner {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 0 24px 16px;
+  padding: 0 28px 18px;
 }
 
 .alert-chip {
   font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 4px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 6px;
   border: 1px solid;
   font-family: ui-monospace, Consolas, monospace;
+  letter-spacing: 0.2px;
 }
 
 .alert-overspeed {
-  color: #ff8080;
-  border-color: #7a2c2c;
-  background: rgba(255, 90, 90, 0.08);
+  color: #ff9494;
+  border-color: rgba(255, 90, 90, 0.35);
+  background: rgba(255, 90, 90, 0.1);
 }
 
 .alert-off_course {
-  color: #e0a458;
-  border-color: #7a5a2c;
-  background: rgba(224, 164, 88, 0.08);
+  color: #f0b46e;
+  border-color: rgba(224, 164, 88, 0.35);
+  background: rgba(224, 164, 88, 0.1);
 }
 
 .alert-low_fuel {
   color: #ffd166;
-  border-color: #7a6a2c;
-  background: rgba(255, 209, 102, 0.08);
+  border-color: rgba(255, 209, 102, 0.35);
+  background: rgba(255, 209, 102, 0.1);
 }
 
 /* Aircraft fleet list */
-.aircraft-list {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.aircraft-list h3 {
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 .aircraft-list ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .aircraft-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: 4px;
+  padding: 9px 10px;
+  border-radius: 7px;
   cursor: pointer;
   border: 1px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .aircraft-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--panel-hover);
 }
 
 .aircraft-row.selected {
   border-color: var(--accent);
-  background: rgba(87, 184, 148, 0.08);
+  background: var(--accent-soft);
 }
 
 .aircraft-row .callsign {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.aircraft-row .callsign::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
 }
 
 .aircraft-row .mini-stats {
@@ -306,61 +371,34 @@ body {
 }
 
 /* Telemetry chart */
-.telemetry-chart-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.telemetry-chart-card h3 {
-  margin: 0 0 8px;
-  font-size: 13px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 .chart-legend-alt {
   color: var(--accent);
   text-transform: none;
   letter-spacing: 0;
+  font-weight: 500;
 }
 
 .chart-legend-spd {
   color: #ffd166;
   text-transform: none;
   letter-spacing: 0;
+  font-weight: 500;
 }
 
 .chart-empty {
   color: var(--text-dim);
   font-size: 12px;
-  padding: 20px 0;
+  padding: 24px 0;
   text-align: center;
 }
 
 /* Sensor feed */
-.sensor-feed-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.sensor-feed-card h3 {
-  margin: 0 0 8px;
-  font-size: 13px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 .sensor-feed-frame {
   position: relative;
-  border-radius: 4px;
+  border-radius: 6px;
   overflow: hidden;
   background: #000;
+  border: 1px solid var(--border-soft);
 }
 
 .sensor-feed-frame img {
@@ -379,72 +417,41 @@ body {
   padding: 12px;
   font-size: 11px;
   color: var(--text-dim);
-  background: rgba(11, 15, 20, 0.9);
-}
-
-/* Waypoint popup */
-.waypoint-popup {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: var(--panel);
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  padding: 12px 14px;
-  min-width: 160px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.waypoint-popup-close {
-  position: absolute;
-  top: 4px;
-  right: 8px;
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  font-size: 16px;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.waypoint-popup-name {
-  color: var(--accent);
-  font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 6px;
-  padding-right: 16px;
-}
-
-.waypoint-popup-row {
-  font-size: 12px;
-  color: var(--text-dim);
-  font-family: ui-monospace, Consolas, monospace;
+  background: rgba(11, 15, 20, 0.92);
 }
 
 /* Playback controls */
 .playback-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 12px 18px;
 }
 
 .playback-controls button {
-  background: rgba(87, 184, 148, 0.1);
+  background: var(--accent-soft);
   border: 1px solid var(--accent);
   color: var(--accent);
-  border-radius: 4px;
-  width: 32px;
-  height: 32px;
+  border-radius: 6px;
+  width: 34px;
+  height: 34px;
   cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.12s ease;
+}
+
+.playback-controls button:hover:not(:disabled) {
+  background: rgba(87, 184, 148, 0.22);
+}
+
+.playback-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .playback-controls input[type='range'] {
   flex: 1;
+  accent-color: var(--accent);
 }
 
 .playback-status {
@@ -460,28 +467,33 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
+  background:
+    radial-gradient(900px 500px at 20% 10%, rgba(87, 184, 148, 0.08), transparent 60%),
+    radial-gradient(700px 500px at 85% 90%, rgba(255, 209, 102, 0.06), transparent 55%),
+    var(--bg);
 }
 
 .login-card {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 280px;
-  padding: 28px;
+  width: 300px;
+  padding: 32px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
 }
 
 .login-card h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 23px;
   text-align: center;
+  letter-spacing: 0.3px;
 }
 
 .login-subtitle {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   text-align: center;
   color: var(--text-dim);
   font-size: 12px;
@@ -491,20 +503,31 @@ body {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 10px 12px;
-  border-radius: 4px;
+  padding: 11px 13px;
+  border-radius: 6px;
   font-size: 14px;
+  transition: border-color 0.12s ease;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .login-card button {
   background: var(--accent);
   border: none;
-  color: #06110c;
-  font-weight: 600;
-  padding: 10px 12px;
-  border-radius: 4px;
+  color: #06150f;
+  font-weight: 700;
+  padding: 11px 12px;
+  border-radius: 6px;
   cursor: pointer;
   margin-top: 4px;
+  transition: filter 0.12s ease;
+}
+
+.login-card button:hover {
+  filter: brightness(1.08);
 }
 
 .login-error {
@@ -518,4 +541,92 @@ body {
   text-align: center;
   color: var(--text-dim);
   font-size: 11px;
+}
+
+/* Leaflet map theming */
+.route-map-leaflet {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  background: #0d1218;
+  font-family: inherit;
+}
+
+.leaflet-container {
+  background: #0d1218;
+}
+
+.leaflet-control-zoom a {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: var(--panel-hover) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(10, 13, 18, 0.7) !important;
+  color: var(--text-dim) !important;
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--text-dim) !important;
+}
+
+.leaflet-tooltip.waypoint-tooltip {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #9fb8ac;
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.9);
+  padding: 0;
+}
+
+.leaflet-tooltip.waypoint-tooltip::before {
+  display: none;
+}
+
+.leaflet-tooltip {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+
+.leaflet-popup-tip {
+  background: var(--panel);
+}
+
+.leaflet-popup-close-button {
+  color: var(--text-dim) !important;
+}
+
+.waypoint-popup-name {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.waypoint-popup-row {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.aircraft-divicon {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
 }

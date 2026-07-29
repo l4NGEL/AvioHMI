@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { SAMPLE_ROUTE, TelemetrySimulator } from './mock/telemetryFeed';
-import type { TelemetryTick, Waypoint } from './types/telemetry';
+import type { TelemetryTick } from './types/telemetry';
 import { useTelemetrySocket } from './hooks/useTelemetrySocket';
 import { useHistoryPlayback } from './hooks/useHistoryPlayback';
 import { computeAlerts } from './lib/alerts';
@@ -11,7 +11,6 @@ import { AircraftList } from './components/AircraftList';
 import { AlertBanner } from './components/AlertBanner';
 import { TelemetryChart } from './components/TelemetryChart';
 import { SensorFeedPanel } from './components/SensorFeedPanel';
-import { WaypointPopup } from './components/WaypointPopup';
 import './index.css';
 
 const CORE_WS_URL = 'ws://localhost:8765';
@@ -66,7 +65,6 @@ function App() {
 
   const [mode, setMode] = useState<Mode>('live');
   const playback = useHistoryPlayback(mode === 'playback' ? selectedAircraftId : null);
-  const [selectedWaypoint, setSelectedWaypoint] = useState<Waypoint | null>(null);
 
   const selectedHistory = selectedAircraftId ? histories[selectedAircraftId] ?? [] : [];
   const selectedLatest = selectedHistory[selectedHistory.length - 1];
@@ -129,10 +127,8 @@ function App() {
               aircraftList={mapAircraft}
               selectedAircraftId={selectedAircraftId}
               trail={mode === 'live' ? selectedHistory.map((t) => t.data) : []}
-              onWaypointClick={setSelectedWaypoint}
               onAircraftClick={setSelectedAircraftId}
             />
-            {selectedWaypoint && <WaypointPopup waypoint={selectedWaypoint} onClose={() => setSelectedWaypoint(null)} />}
           </div>
           {mode === 'playback' && (
             <div className="playback-controls">

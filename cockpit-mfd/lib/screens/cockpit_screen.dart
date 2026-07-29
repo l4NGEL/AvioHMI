@@ -95,15 +95,28 @@ class _CockpitScreenState extends State<CockpitScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TapeGauge(value: flight.speedKts, label: 'SPD kt', accentColor: Colors.greenAccent, step: 20),
-              const SizedBox(width: 16),
-              AttitudeIndicator(rollDeg: flight.rollDeg, pitchDeg: flight.pitchDeg),
-              const SizedBox(width: 16),
-              TapeGauge(value: flight.altitudeMeters, label: 'ALT m', accentColor: Colors.cyanAccent, step: 100),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            // Scales the whole gauge cluster to fill the available area (instead
+            // of sitting fixed-size in the middle) so the PFD reads well both on
+            // a small touch panel and a wide desktop/web window.
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: 432,
+                height: 220,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TapeGauge(value: flight.speedKts, label: 'SPD kt', accentColor: Colors.greenAccent, step: 20),
+                    const SizedBox(width: 16),
+                    AttitudeIndicator(rollDeg: flight.rollDeg, pitchDeg: flight.pitchDeg),
+                    const SizedBox(width: 16),
+                    TapeGauge(value: flight.altitudeMeters, label: 'ALT m', accentColor: Colors.cyanAccent, step: 100),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
         Padding(

@@ -71,7 +71,7 @@ class _TapePainter extends CustomPainter {
     for (int i = -4; i <= 4; i++) {
       final tickValue = (value / step).round() * step + i * step;
       final y = center - (tickValue - value) * pixelsPerUnit;
-      if (y < 0 || y > size.height) continue;
+      if (y < 20 || y > size.height) continue; // 20px keeps clear of the label at the top
       canvas.drawLine(Offset(size.width - 14, y), Offset(size.width, y), paint);
 
       final tp = TextPainter(
