@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    name: Core (Java)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build
+        working-directory: core
+        run: |
+          find src/main/java -name "*.java" > sources.txt
+          javac -d out @sources.txt
+      - name: Test
+        working-directory: core
+        run: |
+          find src/test/java -name "*.java" > test-sources.txt
+          javac -cp out -d out @test-sources.txt
+          java -cp out avio.NavigationServiceTest
+
+  ground-control:
+    name: Ground Control (React + TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ground-control
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  cockpit-mfd:
+    name: Cockpit MFD (Flutter)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cockpit-mfd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

@@ -1,0 +1,26 @@
+# Java core
+core/out/
+
+# Node / Vite
+node_modules/
+ground-control/dist/
+
+# Flutter
+cockpit-mfd/.dart_tool/
+cockpit-mfd/.flutter-plugins
+cockpit-mfd/.flutter-plugins-dependencies
+cockpit-mfd/build/
+cockpit-mfd/.metadata
+
+# CUDA build/demo output
+video-processing/*.exe
+video-processing/*.pgm
+video-processing/*.png
+video-processing/*.o
+video-processing/*.obj
+video-processing/*.exp
+video-processing/*.lib
+
+# OS
+Thumbs.db
+.DS_Store

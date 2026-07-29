@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: aviohmi
+      POSTGRES_USER: aviohmi
+      POSTGRES_PASSWORD: aviohmi
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+
+  ground-control:
+    build: ./ground-control
+    ports:
+      - "5173:5173"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
