@@ -3,10 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../models/flight_state.dart';
 import '../widgets/attitude_indicator.dart';
+import '../widgets/compass_rose.dart';
 import '../widgets/heading_strip.dart';
 import '../widgets/tape_gauge.dart';
 
 enum MfdPage { pfd, nav, sys }
+
+const double _overspeedThresholdKts = 430;
+const double _lowFuelThresholdPercent = 20;
 
 /// Touch-driven Multi-Function Display: page buttons across the top switch
 /// between flight, navigation, and system views, mirroring a real cockpit MFD.
@@ -145,51 +149,126 @@ class _CockpitScreenState extends State<CockpitScreen> {
   }
 
   Widget _buildNavPage(FlightState flight) {
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compassSize = (constraints.maxHeight * 0.65).clamp(140.0, constraints.maxWidth * 0.7);
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Center(
+                  child: CompassRose(headingDeg: flight.headingDeg, size: compassSize),
+                ),
+              ),
+              Text(
+                'NEXT: ${flight.nextWaypointName}',
+                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${flight.nextWaypointDistanceKm.toStringAsFixed(0)} km  •  ETA ${flight.etaMinutes.toStringAsFixed(0)} min  •  HDG ${flight.headingDeg.toStringAsFixed(0)}°',
+                style: const TextStyle(color: Colors.white54, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSysPage(FlightState flight) {
+    final telemetryRows = <(String, String)>[
+      ('Speed', '${flight.speedKts.toStringAsFixed(1)} kt'),
+      ('Altitude', '${flight.altitudeMeters.toStringAsFixed(0)} m'),
+      ('Heading', '${flight.headingDeg.toStringAsFixed(1)}°'),
+      ('Roll', '${flight.rollDeg.toStringAsFixed(1)}°'),
+      ('Pitch', '${flight.pitchDeg.toStringAsFixed(1)}°'),
+      ('Fuel', '${flight.fuelPercent.toStringAsFixed(0)}%'),
+    ];
+
+    final alerts = <String>[
+      if (flight.speedKts > _overspeedThresholdKts) 'OVERSPEED — ${flight.speedKts.toStringAsFixed(0)}kt',
+      if (flight.fuelPercent < _lowFuelThresholdPercent) 'LOW FUEL — ${flight.fuelPercent.toStringAsFixed(0)}%',
+    ];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.navigation, color: Colors.greenAccent, size: 64),
-          const SizedBox(height: 16),
-          Text(
-            'NEXT: ${flight.nextWaypointName}',
-            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+          _sysSectionHeader('CONNECTION'),
+          _sysStatusRow(
+            'Link',
+            flight.connected ? 'CONNECTED' : 'RECONNECTING…',
+            valueColor: flight.connected ? Colors.greenAccent : Colors.redAccent,
           ),
-          const SizedBox(height: 8),
+          _sysStatusRow('Callsign', flight.callsign.isEmpty ? '—' : flight.callsign),
+          _sysStatusRow('Link drops', flight.disconnectCount.toString()),
+          _sysStatusRow(
+            'Last update',
+            flight.lastConnectedAt == null
+                ? '—'
+                : '${flight.lastConnectedAt!.hour.toString().padLeft(2, '0')}:'
+                    '${flight.lastConnectedAt!.minute.toString().padLeft(2, '0')}:'
+                    '${flight.lastConnectedAt!.second.toString().padLeft(2, '0')}',
+          ),
+          const SizedBox(height: 20),
+          _sysSectionHeader('TELEMETRY'),
+          ...telemetryRows.map((r) => _sysStatusRow(r.$1, r.$2)),
+          const SizedBox(height: 20),
+          _sysSectionHeader('ALERTS'),
+          if (alerts.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Text('No active alerts', style: TextStyle(color: Colors.white38, fontSize: 14)),
+            )
+          else
+            ...alerts.map((a) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade900.withValues(alpha: 0.3),
+                      border: Border.all(color: Colors.redAccent),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(a, style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _sysSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(width: 3, height: 14, color: Colors.greenAccent),
+          const SizedBox(width: 8),
           Text(
-            '${flight.nextWaypointDistanceKm.toStringAsFixed(0)} km  •  ETA ${flight.etaMinutes.toStringAsFixed(0)} min  •  HDG ${flight.headingDeg.toStringAsFixed(0)}°',
-            style: const TextStyle(color: Colors.white54, fontSize: 16),
+            title,
+            style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSysPage(FlightState flight) {
-    final rows = <(String, String)>[
-      ('Speed', '${flight.speedKts.toStringAsFixed(1)} kt'),
-      ('Altitude', '${flight.altitudeMeters.toStringAsFixed(0)} m'),
-      ('Heading', '${flight.headingDeg.toStringAsFixed(1)}°'),
-      ('Roll', '${flight.rollDeg.toStringAsFixed(1)}°'),
-      ('Pitch', '${flight.pitchDeg.toStringAsFixed(1)}°'),
-      ('Link', flight.connected ? 'CONNECTED' : 'RECONNECTING…'),
-    ];
+  Widget _sysStatusRow(String label, String value, {Color valueColor = Colors.greenAccent}) {
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: rows
-            .map((r) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(r.$1, style: const TextStyle(color: Colors.white54, fontSize: 16)),
-                      Text(r.$2, style: const TextStyle(color: Colors.greenAccent, fontSize: 16, fontFamily: 'monospace')),
-                    ],
-                  ),
-                ))
-            .toList(),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 16)),
+          Text(value, style: TextStyle(color: valueColor, fontSize: 16, fontFamily: 'monospace')),
+        ],
       ),
     );
   }

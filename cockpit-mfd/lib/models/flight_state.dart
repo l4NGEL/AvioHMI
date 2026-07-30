@@ -19,8 +19,14 @@ class FlightState extends ChangeNotifier {
   double pitchDeg = 0;
   double nextWaypointDistanceKm = 0;
   double etaMinutes = 0;
+  double fuelPercent = 100;
   String nextWaypointName = '';
+  String callsign = '';
   bool connected = false;
+
+  /// Number of times the link has dropped since this MFD started, for the SYS page.
+  int disconnectCount = 0;
+  DateTime? lastConnectedAt;
 
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
@@ -61,10 +67,13 @@ class FlightState extends ChangeNotifier {
       headingDeg = (data['headingDeg'] as num).toDouble();
       rollDeg = (data['rollDeg'] as num? ?? 0).toDouble();
       pitchDeg = (data['pitchDeg'] as num? ?? 0).toDouble();
+      fuelPercent = (msg['fuelPercent'] as num? ?? fuelPercent).toDouble();
       nextWaypointName = next['name'] as String;
       nextWaypointDistanceKm = (msg['distanceToNextKm'] as num).toDouble();
       etaMinutes = (msg['etaMinutes'] as num? ?? 0).toDouble();
+      callsign = (msg['callsign'] as String?) ?? callsign;
       connected = true;
+      lastConnectedAt = DateTime.now();
       notifyListeners();
     } catch (_) {
       // Malformed frame; wait for the next one rather than tearing down the connection.
@@ -73,6 +82,7 @@ class FlightState extends ChangeNotifier {
 
   void _onDisconnected() {
     if (_disposed) return;
+    if (connected) disconnectCount++;
     connected = false;
     notifyListeners();
     _scheduleReconnect();
