@@ -1,0 +1,36 @@
+# Mirrors .github/workflows/ci.yml and Jenkinsfile — same three build/test
+# jobs, expressed for GitLab CI. Kept in sync by hand since the project only
+# actually runs on GitHub; this exists to demonstrate the pipeline translates
+# cleanly to whichever CI system a team already has.
+
+stages:
+  - build
+
+core:
+  stage: build
+  image: eclipse-temurin:17-jdk
+  script:
+    - cd core
+    - find src/main/java -name "*.java" > sources.txt
+    - javac -d out @sources.txt
+    - find src/test/java -name "*.java" > test-sources.txt
+    - javac -cp out -d out @test-sources.txt
+    - java -cp out avio.NavigationServiceTest
+
+ground-control:
+  stage: build
+  image: node:22
+  script:
+    - cd ground-control
+    - npm ci
+    - npx tsc --noEmit
+    - npm run build
+
+cockpit-mfd:
+  stage: build
+  image: ghcr.io/cirruslabs/flutter:stable
+  script:
+    - cd cockpit-mfd
+    - flutter pub get
+    - flutter analyze
+    - flutter test

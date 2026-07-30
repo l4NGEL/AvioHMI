@@ -8,9 +8,14 @@
 // with zero decoding libraries, which matters here since there's no PNG/zlib
 // available without a package manager.
 //
-// Usage: edge_detect.exe [headingDeg] [speedKts] [altitudeMeters] [outPath]
+// Usage: edge_detect.exe [headingDeg] [speedKts] [altitudeMeters] [outPath] [inputPgmPath]
 // All arguments are optional; run with none for the original standalone demo.
+// If inputPgmPath is given, that frame (P5 binary PGM, any size) is processed
+// instead of the synthetic disc — this is how Core's HUD thread feeds it a
+// real frame decoded from video-processing/assets/sample_sensor_feed.mp4 via
+// ffmpeg, rather than a hardcoded test pattern.
 
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -54,6 +59,39 @@ static void writePgm(const char* path, const unsigned char* data, int width, int
     fprintf(f, "P5\n%d %d\n255\n", width, height);
     fwrite(data, 1, (size_t)width * height, f);
     fclose(f);
+}
+
+// Reads a binary (P5) PGM of any size, e.g. a frame ffmpeg extracted from a real video.
+static bool readPgm(const char* path, unsigned char** outData, int* outWidth, int* outHeight) {
+    FILE* f = fopen(path, "rb");
+    if (!f) return false;
+
+    char magic[2];
+    if (fread(magic, 1, 2, f) != 2 || magic[0] != 'P' || magic[1] != '5') { fclose(f); return false; }
+
+    int values[3]; // width, height, maxval
+    int count = 0;
+    while (count < 3) {
+        int ch = fgetc(f);
+        if (ch == EOF) { fclose(f); return false; }
+        if (ch == '#') { while (ch != '\n' && ch != EOF) ch = fgetc(f); continue; }
+        if (isspace(ch)) continue;
+        ungetc(ch, f);
+        if (fscanf(f, "%d", &values[count]) != 1) { fclose(f); return false; }
+        count++;
+    }
+    fgetc(f); // the single whitespace byte separating the header from raw pixel data
+
+    int width = values[0], height = values[1];
+    size_t bytes = (size_t)width * height;
+    unsigned char* data = (unsigned char*)malloc(bytes);
+    if (fread(data, 1, bytes, f) != bytes) { free(data); fclose(f); return false; }
+    fclose(f);
+
+    *outData = data;
+    *outWidth = width;
+    *outHeight = height;
+    return true;
 }
 
 // --- Minimal RGB canvas + HUD drawing (host-side; no CUDA needed for this part) ---
@@ -180,24 +218,35 @@ int main(int argc, char** argv) {
     double speedKts = argc > 2 ? atof(argv[2]) : 420.0;
     double altitudeM = argc > 3 ? atof(argv[3]) : 1000.0;
     const char* outPath = argc > 4 ? argv[4] : "hud_overlay.bmp";
+    const char* inputPgmPath = argc > 5 ? argv[5] : nullptr;
 
-    const int width = 512;
-    const int height = 512;
-    const size_t bytes = (size_t)width * height;
+    int width, height;
+    unsigned char* hInput;
 
-    unsigned char* hInput = (unsigned char*)malloc(bytes);
-    unsigned char* hOutput = (unsigned char*)malloc(bytes);
+    bool loadedFromFile = inputPgmPath != nullptr && readPgm(inputPgmPath, &hInput, &width, &height);
+    if (inputPgmPath && !loadedFromFile) {
+        fprintf(stderr, "Failed to read %s, falling back to the synthetic test frame\n", inputPgmPath);
+    }
 
-    // Synthetic sensor tile: a bright disc (a simulated target) over a gradient sky.
-    int cx = width / 2, cy = height / 2, r = width / 5;
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int dx = x - cx, dy = y - cy;
-            bool inDisc = (dx * dx + dy * dy) <= (r * r);
-            unsigned char gradient = (unsigned char)((x * 255) / width);
-            hInput[y * width + x] = inDisc ? 230 : gradient / 3;
+    if (!loadedFromFile) {
+        width = 512;
+        height = 512;
+        hInput = (unsigned char*)malloc((size_t)width * height);
+
+        // Synthetic sensor tile: a bright disc (a simulated target) over a gradient sky.
+        int cx = width / 2, cy = height / 2, r = width / 5;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int dx = x - cx, dy = y - cy;
+                bool inDisc = (dx * dx + dy * dy) <= (r * r);
+                unsigned char gradient = (unsigned char)((x * 255) / width);
+                hInput[y * width + x] = inDisc ? 230 : gradient / 3;
+            }
         }
     }
+
+    const size_t bytes = (size_t)width * height;
+    unsigned char* hOutput = (unsigned char*)malloc(bytes);
     writePgm("input.pgm", hInput, width, height);
 
     unsigned char *dInput, *dOutput;

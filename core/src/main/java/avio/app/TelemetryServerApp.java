@@ -8,6 +8,7 @@ import avio.domain.Route;
 import avio.domain.Waypoint;
 import avio.service.NavigationService;
 import avio.service.SensorSimulator;
+import avio.transport.FfmpegLocator;
 import avio.transport.TelemetryHttpServer;
 import avio.transport.TelemetryJson;
 import avio.transport.WebSocketServer;
@@ -17,6 +18,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Runs the same route simulation as MissionComputerApp, but for multiple
@@ -174,7 +176,15 @@ public final class TelemetryServerApp {
                 base.getAltitudeMeters(), speedKts, base.getHeadingDeg());
     }
 
-    /** Periodically re-invokes the CUDA HUD demo with the lead aircraft's live telemetry, feeding Ground Control's Sensor Feed panel. */
+    private static final double SAMPLE_VIDEO_DURATION_SECONDS = 8.0;
+
+    /**
+     * Periodically re-invokes the CUDA HUD demo with the lead aircraft's live telemetry,
+     * feeding Ground Control's Sensor Feed panel. When ffmpeg is available, it first
+     * decodes the current frame of video-processing/assets/sample_sensor_feed.mp4 (looping
+     * on a timer) into a PGM and hands that to the CUDA program instead of a synthetic
+     * still image, so the "sensor" the HUD is drawn over is a real decoded video frame.
+     */
     private static void startHudOverlayThread(AircraftRuntime leadAircraft, File overlayFile) {
         Thread thread = new Thread(() -> {
             File videoProcessingDir = new File("../video-processing");
@@ -184,19 +194,55 @@ public final class TelemetryServerApp {
                         + "(build it with video-processing/build.bat).");
                 return;
             }
+
+            File sampleVideo = new File(videoProcessingDir, "assets/sample_sensor_feed.mp4");
+            File currentFrame = new File(videoProcessingDir, "current_frame.pgm");
+            String ffmpegPath = FfmpegLocator.resolve();
+            if (ffmpegPath == null) {
+                System.out.println("ffmpeg not found — Sensor Feed will use the synthetic test frame "
+                        + "instead of decoding video-processing/assets/sample_sensor_feed.mp4.");
+            } else if (!sampleVideo.exists()) {
+                System.out.println("video-processing/assets/sample_sensor_feed.mp4 not found — "
+                        + "Sensor Feed will use the synthetic test frame.");
+            }
+
+            long startMillis = System.currentTimeMillis();
+
             while (true) {
+                boolean haveRealFrame = false;
+                if (ffmpegPath != null && sampleVideo.exists()) {
+                    double elapsedSeconds = (System.currentTimeMillis() - startMillis) / 1000.0;
+                    double offset = elapsedSeconds % SAMPLE_VIDEO_DURATION_SECONDS;
+                    try {
+                        ProcessBuilder ffmpegPb = new ProcessBuilder(
+                                ffmpegPath, "-y",
+                                "-ss", String.format(Locale.US, "%.2f", offset),
+                                "-i", sampleVideo.getAbsolutePath(),
+                                "-vframes", "1", "-pix_fmt", "gray",
+                                currentFrame.getAbsolutePath());
+                        ffmpegPb.directory(videoProcessingDir);
+                        ffmpegPb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                        ffmpegPb.redirectError(ProcessBuilder.Redirect.DISCARD);
+                        haveRealFrame = ffmpegPb.start().waitFor() == 0 && currentFrame.exists();
+                    } catch (Exception e) {
+                        System.err.println("ffmpeg frame extraction failed: " + e.getMessage());
+                    }
+                }
+
                 try {
-                    ProcessBuilder pb = new ProcessBuilder(
+                    List<String> command = new ArrayList<>(List.of(
                             exe.getAbsolutePath(),
                             String.valueOf(leadAircraft.prevHeading),
                             String.valueOf(leadAircraft.profile.baseSpeedKts),
                             String.valueOf(leadAircraft.prevAltitude),
-                            overlayFile.getAbsolutePath());
+                            overlayFile.getAbsolutePath()));
+                    if (haveRealFrame) command.add(currentFrame.getAbsolutePath());
+
+                    ProcessBuilder pb = new ProcessBuilder(command);
                     pb.directory(videoProcessingDir);
                     pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
                     pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-                    Process process = pb.start();
-                    process.waitFor();
+                    pb.start().waitFor();
                 } catch (Exception e) {
                     System.err.println("HUD overlay generation failed: " + e.getMessage());
                 }
