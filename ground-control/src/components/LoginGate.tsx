@@ -17,9 +17,16 @@ export function LoginGate({ children }: { children: ReactNode }) {
 
   if (authenticated) return <>{children}</>;
 
-  function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (username === DEMO_USERNAME && password === DEMO_PASSWORD) {
+    // Read straight from the form (not React state) at submit time: some
+    // browsers' autofill/password-manager sets the DOM value without firing
+    // the input events React listens to, which left the controlled state
+    // stale and made a correctly-autofilled login report "Invalid credentials".
+    const formData = new FormData(e.currentTarget);
+    const enteredUsername = String(formData.get('username') ?? '').trim();
+    const enteredPassword = String(formData.get('password') ?? '');
+    if (enteredUsername === DEMO_USERNAME && enteredPassword === DEMO_PASSWORD) {
       sessionStorage.setItem(SESSION_KEY, '1');
       setAuthenticated(true);
     } else {
@@ -33,12 +40,14 @@ export function LoginGate({ children }: { children: ReactNode }) {
         <h1>AvioHMI</h1>
         <p className="login-subtitle">Ground Control — operator sign-in</p>
         <input
+          name="username"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoFocus
         />
         <input
+          name="password"
           placeholder="Password"
           type="password"
           value={password}

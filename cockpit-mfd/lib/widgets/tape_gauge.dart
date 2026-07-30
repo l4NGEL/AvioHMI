@@ -6,6 +6,8 @@ class TapeGauge extends StatelessWidget {
   final String label;
   final Color accentColor;
   final double step;
+  final double width;
+  final double height;
 
   const TapeGauge({
     super.key,
@@ -13,13 +15,15 @@ class TapeGauge extends StatelessWidget {
     required this.label,
     this.accentColor = Colors.greenAccent,
     this.step = 20,
+    this.width = 90,
+    this.height = 220,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 90,
-      height: 220,
+      width: width,
+      height: height,
       decoration: BoxDecoration(
         color: Colors.black,
         border: Border.all(color: Colors.white24),
@@ -30,7 +34,7 @@ class TapeGauge extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           CustomPaint(
-            size: const Size(90, 220),
+            size: Size(width, height),
             painter: _TapePainter(value: value, step: step, color: accentColor),
           ),
           Positioned(

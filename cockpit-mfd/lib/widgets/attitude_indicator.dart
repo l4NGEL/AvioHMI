@@ -5,15 +5,16 @@ import 'package:flutter/material.dart';
 class AttitudeIndicator extends StatelessWidget {
   final double rollDeg;
   final double pitchDeg;
+  final double size;
 
-  const AttitudeIndicator({super.key, required this.rollDeg, required this.pitchDeg});
+  const AttitudeIndicator({super.key, required this.rollDeg, required this.pitchDeg, this.size = 220});
 
   @override
   Widget build(BuildContext context) {
     return ClipOval(
       child: CustomPaint(
         painter: _AttitudePainter(rollDeg: rollDeg, pitchDeg: pitchDeg),
-        size: const Size.square(220),
+        size: Size.square(size),
       ),
     );
   }

@@ -5,8 +5,8 @@ interface Props {
 }
 
 const WIDTH = 460;
-const HEIGHT = 130;
-const PADDING = 20;
+const HEIGHT = 90;
+const PADDING = 16;
 const MAX_POINTS = 40;
 
 export function TelemetryChart({ history }: Props) {

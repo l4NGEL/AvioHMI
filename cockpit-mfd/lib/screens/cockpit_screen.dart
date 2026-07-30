@@ -92,30 +92,47 @@ class _CockpitScreenState extends State<CockpitScreen> {
 
   Widget _buildPfdPage(FlightState flight) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(24),
-            // Scales the whole gauge cluster to fill the available area (instead
-            // of sitting fixed-size in the middle) so the PFD reads well both on
-            // a small touch panel and a wide desktop/web window.
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: SizedBox(
-                width: 432,
-                height: 220,
-                child: Row(
+            padding: const EdgeInsets.all(20),
+            // Sizes the gauges directly off the available space (rather than
+            // scaling a fixed-size cluster with FittedBox, which letterboxes
+            // when the aspect ratio doesn't match) so the whole row genuinely
+            // fills the screen edge-to-edge with nothing left unused or hidden.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final gaugeHeight = constraints.maxHeight;
+                final attitudeSize = (gaugeHeight).clamp(120.0, constraints.maxWidth * 0.55);
+                final remainingWidth = constraints.maxWidth - attitudeSize - 32;
+                final tapeWidth = (remainingWidth / 2).clamp(70.0, 220.0);
+
+                return Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    TapeGauge(value: flight.speedKts, label: 'SPD kt', accentColor: Colors.greenAccent, step: 20),
+                    TapeGauge(
+                      value: flight.speedKts,
+                      label: 'SPD kt',
+                      accentColor: Colors.greenAccent,
+                      step: 20,
+                      width: tapeWidth,
+                      height: gaugeHeight,
+                    ),
                     const SizedBox(width: 16),
-                    AttitudeIndicator(rollDeg: flight.rollDeg, pitchDeg: flight.pitchDeg),
+                    AttitudeIndicator(rollDeg: flight.rollDeg, pitchDeg: flight.pitchDeg, size: attitudeSize),
                     const SizedBox(width: 16),
-                    TapeGauge(value: flight.altitudeMeters, label: 'ALT m', accentColor: Colors.cyanAccent, step: 100),
+                    TapeGauge(
+                      value: flight.altitudeMeters,
+                      label: 'ALT m',
+                      accentColor: Colors.cyanAccent,
+                      step: 100,
+                      width: tapeWidth,
+                      height: gaugeHeight,
+                    ),
                   ],
-                ),
-              ),
+                );
+              },
             ),
           ),
         ),
