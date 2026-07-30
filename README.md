@@ -26,7 +26,7 @@ and a CI pipeline that builds every module.
 
 ## Screenshots
 
-![Ground Control — fleet view with alerts, chart, and sensor feed](docs/screenshots/ground-control.png)
+![Ground Control — Dashboard with KPI cards, fleet status donut, and recent alerts](docs/screenshots/ground-control.png)
 
 <table>
 <tr>
@@ -49,6 +49,14 @@ and a CI pipeline that builds every module.
 
 ## Features
 
+- **Multi-page ops dashboard** — a sidebar + topbar shell (React Router)
+  with dedicated Dashboard, Fleet & Map, Playback, Alerts, Sensor Feed, AR
+  View, Reports, and Settings pages, all sharing one `TelemetryContext` so
+  state (selected aircraft, alert history) survives navigation.
+- **AR View** — a genuine augmented-reality page: a live `getUserMedia`
+  camera feed with a real-time HUD (heading tape, speed/altitude, boresight)
+  composited on top every animation frame via canvas — camera passthrough +
+  synthetic overlay, not a pre-rendered image.
 - **Multi-aircraft simulation** — three aircraft (`AVIO101/102/103`) fly the
   same route with distinct personalities: one flies clean, one periodically
   drifts off-course and blips over the speed limit, one is a chronic
@@ -150,7 +158,7 @@ Both clients are resilient to Core being unavailable:
 |---|---|---|
 | [`core/`](core) | Java 17, layered architecture | Simulates 3 aircraft along a route; serves live telemetry (WebSocket), history (HTTP), and the HUD overlay (HTTP) |
 | [`cockpit-mfd/`](cockpit-mfd) | Flutter | Touch multi-function display: PFD (attitude/speed/altitude/heading), NAV, and SYS pages |
-| [`ground-control/`](ground-control) | React + TypeScript + Vite | Fleet map with alerts, telemetry/chart panels, mission log, playback, and CUDA sensor feed |
+| [`ground-control/`](ground-control) | React + TypeScript + Vite + React Router | Multi-page ops dashboard: Dashboard, Fleet & Map, Playback, Alerts, Sensor Feed, AR View, Reports, Settings |
 | [`video-processing/`](video-processing) | CUDA (nvcc) + ffmpeg | Decodes a real sample video frame, runs GPU Sobel edge detection, composites a live-telemetry HUD |
 | [`db/`](db) + `docker-compose.yml` | PostgreSQL + PostGIS | Schema for routes/telemetry, backing history playback |
 | [`.github/workflows/ci.yml`](.github/workflows/ci.yml), [`.gitlab-ci.yml`](.gitlab-ci.yml), [`Jenkinsfile`](Jenkinsfile) | GitHub Actions, GitLab CI, Jenkins | Equivalent build/test pipelines for whichever CI system a team already runs |
