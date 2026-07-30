@@ -53,10 +53,12 @@ and a CI pipeline that builds every module.
   with dedicated Dashboard, Fleet & Map, Playback, Alerts, Sensor Feed, AR
   View, Reports, and Settings pages, all sharing one `TelemetryContext` so
   state (selected aircraft, alert history) survives navigation.
-- **AR View** — a genuine augmented-reality page: a live `getUserMedia`
-  camera feed with a real-time HUD (heading tape, speed/altitude, boresight)
-  composited on top every animation frame via canvas — camera passthrough +
-  synthetic overlay, not a pre-rendered image.
+- **AR View (wayfinding)** — a live `getUserMedia` camera feed with an arrow
+  composited via canvas that points at a real waypoint's true compass
+  bearing, computed from the device's actual GPS position (`Geolocation`) and
+  compass heading (`DeviceOrientationEvent`, with the iOS permission-prompt
+  path handled). Genuine sensor-driven AR, not a fixed overlay — phone-only,
+  since desktop browsers don't expose a compass.
 - **Multi-aircraft simulation** — three aircraft (`AVIO101/102/103`) fly the
   same route with distinct personalities: one flies clean, one periodically
   drifts off-course and blips over the speed limit, one is a chronic

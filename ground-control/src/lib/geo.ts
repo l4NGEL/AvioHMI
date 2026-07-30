@@ -16,6 +16,18 @@ export function haversineKm(a: LatLon, b: LatLon): number {
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+/** Initial great-circle bearing (0-360, 0 = true north) from a to b. */
+export function bearingDeg(a: LatLon, b: LatLon): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  const deg = (Math.atan2(y, x) * 180) / Math.PI;
+  return (deg + 360) % 360;
+}
+
 /**
  * Cross-track distance (km) of point P from the segment A->B, using a flat
  * equirectangular approximation around A. Accurate enough at route scale

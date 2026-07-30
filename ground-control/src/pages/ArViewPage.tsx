@@ -1,57 +1,139 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTelemetry } from '../context/TelemetryContext';
-import type { TelemetryTick } from '../types/telemetry';
+import { bearingDeg, haversineKm, type LatLon } from '../lib/geo';
 
 const HUD_COLOR = '#57e6a8';
 
+type CompassEvent = Event & { webkitCompassHeading?: number; alpha?: number | null; absolute?: boolean };
+type OrientationPermissionEventConstructor = {
+  requestPermission?: () => Promise<'granted' | 'denied'>;
+};
+
 /**
- * Real augmented reality: a live getUserMedia camera feed with flight data
- * composited on top every animation frame via canvas — the camera passthrough
- * and the HUD are genuinely overlaid in real time, unlike the CUDA pipeline's
- * static-frame-swap HUD (which processes a pre-recorded sample video, not a
- * live feed, since there's no camera on this HMI's target hardware).
+ * AR wayfinding: points a live arrow at a real waypoint's true compass bearing,
+ * computed from the device's actual GPS position and compass heading — not a
+ * fixed HUD, but genuine phone-sensor-driven augmented reality. Desktop
+ * browsers don't expose a compass, so this only really comes alive on a phone.
  */
 export default function ArViewPage() {
-  const { selectedLatest } = useTelemetry();
+  const { route } = useTelemetry();
+  const [targetIndex, setTargetIndex] = useState(0);
+  const target = route.waypoints[targetIndex];
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const latestRef = useRef<TelemetryTick | undefined>(selectedLatest);
-  latestRef.current = selectedLatest;
+  const headingRef = useRef<number | null>(null);
+  const positionRef = useRef<LatLon | null>(null);
+  const targetRef = useRef<LatLon>(target);
+  targetRef.current = target;
 
-  const [error, setError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [heading, setHeading] = useState<number | null>(null);
+  const [position, setPosition] = useState<LatLon | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [needsOrientationTap, setNeedsOrientationTap] = useState(false);
+  const [orientationError, setOrientationError] = useState<string | null>(null);
 
+  headingRef.current = heading;
+  positionRef.current = position;
+
+  // Camera passthrough
   useEffect(() => {
     let stream: MediaStream | null = null;
-    let rafId = 0;
     let cancelled = false;
-
-    async function start() {
+    (async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setError('This browser does not support camera access (getUserMedia).');
+        setCameraError('This browser does not support camera access.');
         return;
       }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-          audio: false,
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        const video = videoRef.current;
-        if (video) {
-          video.srcObject = stream;
-          await video.play();
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
         }
         setReady(true);
-        draw();
       } catch {
-        setError('Camera access was denied or no camera is available — grant permission and reload to use AR View.');
+        setCameraError('Camera access was denied or no camera is available.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  // Live GPS position
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGeoError('Geolocation is not supported by this browser.');
+      return;
+    }
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => setPosition({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      (err) => setGeoError(err.message),
+      { enableHighAccuracy: true, maximumAge: 2000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  // Device compass — iOS requires a permission prompt triggered by a tap; Android/Chrome doesn't.
+  useEffect(() => {
+    function onOrientation(e: Event) {
+      const ev = e as CompassEvent;
+      if (typeof ev.webkitCompassHeading === 'number') {
+        setHeading(ev.webkitCompassHeading);
+      } else if (ev.absolute && ev.alpha != null) {
+        setHeading((360 - ev.alpha) % 360);
       }
     }
 
+    const doe = (window as unknown as { DeviceOrientationEvent?: OrientationPermissionEventConstructor })
+      .DeviceOrientationEvent;
+    if (doe?.requestPermission) {
+      setNeedsOrientationTap(true);
+      return;
+    }
+    window.addEventListener('deviceorientationabsolute', onOrientation, true);
+    window.addEventListener('deviceorientation', onOrientation, true);
+    return () => {
+      window.removeEventListener('deviceorientationabsolute', onOrientation, true);
+      window.removeEventListener('deviceorientation', onOrientation, true);
+    };
+  }, []);
+
+  async function enableCompass() {
+    try {
+      const doe = (window as unknown as { DeviceOrientationEvent: Required<OrientationPermissionEventConstructor> })
+        .DeviceOrientationEvent;
+      const result = await doe.requestPermission();
+      if (result !== 'granted') {
+        setOrientationError('Compass permission denied.');
+        return;
+      }
+      setNeedsOrientationTap(false);
+      window.addEventListener(
+        'deviceorientation',
+        (e) => {
+          const ev = e as CompassEvent;
+          if (typeof ev.webkitCompassHeading === 'number') setHeading(ev.webkitCompassHeading);
+          else if (ev.alpha != null) setHeading((360 - ev.alpha) % 360);
+        },
+        true,
+      );
+    } catch {
+      setOrientationError('Compass permission request failed.');
+    }
+  }
+
+  // Draw loop
+  useEffect(() => {
+    let rafId = 0;
     function draw() {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -65,116 +147,124 @@ export default function ArViewPage() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.clearRect(0, 0, w, h);
-          drawHud(ctx, w, h, latestRef.current);
+          drawWayfinding(ctx, w, h, headingRef.current, positionRef.current, targetRef.current);
         }
       }
       rafId = requestAnimationFrame(draw);
     }
-
-    start();
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
-      stream?.getTracks().forEach((t) => t.stop());
-    };
+    draw();
+    return () => cancelAnimationFrame(rafId);
   }, []);
+
+  const distanceKm = position ? haversineKm(position, target) : null;
+  const trueBearing = position ? bearingDeg(position, target) : null;
 
   return (
     <div className="page">
       <div className="page-header">
-        <h1>AR View</h1>
+        <h1>AR View — Wayfinding</h1>
         <p className="page-subtitle">
-          Live camera passthrough with a real-time HUD composited via canvas — genuine camera + synthetic-overlay
-          augmented reality, driven by the selected aircraft's live telemetry.
+          Points a live arrow at the selected waypoint's real compass bearing, computed from your device's actual GPS
+          position and compass heading. Phone only — desktop browsers don't expose a compass.
         </p>
       </div>
 
+      <div className="card ar-waypoint-picker">
+        <span>Target waypoint</span>
+        <select value={targetIndex} onChange={(e) => setTargetIndex(Number(e.target.value))} className="waypoint-select">
+          {route.waypoints.map((w, i) => (
+            <option key={w.name} value={i}>
+              {w.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="card ar-frame">
-        {error ? (
-          <p className="empty-hint">{error}</p>
+        {cameraError ? (
+          <p className="empty-hint">{cameraError}</p>
         ) : (
           <div className="ar-video-wrap">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video ref={videoRef} muted playsInline className="ar-video" />
             <canvas ref={canvasRef} className="ar-canvas" />
             {!ready && <div className="ar-loading">Requesting camera…</div>}
+            {needsOrientationTap && (
+              <button className="ar-permission-button" onClick={enableCompass}>
+                Enable compass
+              </button>
+            )}
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <div className="stat-grid">
+          <div className="stat">
+            <span className="stat-label">Distance</span>
+            <span className="stat-value">{distanceKm != null ? `${distanceKm.toFixed(1)} km` : '—'}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">True bearing</span>
+            <span className="stat-value">{trueBearing != null ? `${trueBearing.toFixed(0)}°` : '—'}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Device heading</span>
+            <span className="stat-value">{heading != null ? `${heading.toFixed(0)}°` : 'no compass yet'}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">GPS</span>
+            <span className="stat-value">
+              {geoError ?? (position ? `${position.lat.toFixed(4)}, ${position.lon.toFixed(4)}` : 'locating…')}
+            </span>
+          </div>
+        </div>
+        {orientationError && <p className="empty-hint">{orientationError}</p>}
       </div>
     </div>
   );
 }
 
-function drawHud(ctx: CanvasRenderingContext2D, w: number, h: number, tick?: TelemetryTick) {
+function drawWayfinding(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  heading: number | null,
+  position: LatLon | null,
+  target: LatLon,
+) {
   ctx.strokeStyle = HUD_COLOR;
   ctx.fillStyle = HUD_COLOR;
   ctx.lineWidth = 2;
   ctx.font = '13px ui-monospace, Consolas, monospace';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Frame border
   ctx.strokeRect(6, 6, w - 12, h - 12);
 
-  const heading = tick?.data.headingDeg ?? 0;
-  const speed = tick?.data.speedKts ?? 0;
-  const altitude = tick?.data.altitudeMeters ?? 0;
-
-  // Heading tape across the top
-  const tapeY = 34;
-  ctx.beginPath();
-  ctx.moveTo(30, tapeY);
-  ctx.lineTo(w - 30, tapeY);
-  ctx.stroke();
-  for (let i = -4; i <= 4; i++) {
-    const tickHeading = Math.round((heading + i * 15) / 10) * 10;
-    const x = w / 2 + i * 40;
-    if (x < 30 || x > w - 30) continue;
-    ctx.beginPath();
-    ctx.moveTo(x, tapeY - 8);
-    ctx.lineTo(x, tapeY);
-    ctx.stroke();
-    ctx.textAlign = 'center';
-    ctx.fillText(String(((tickHeading % 360) + 360) % 360).padStart(3, '0'), x, tapeY - 16);
-  }
-  ctx.beginPath();
-  ctx.moveTo(w / 2 - 7, tapeY + 10);
-  ctx.lineTo(w / 2 + 7, tapeY + 10);
-  ctx.lineTo(w / 2, tapeY + 2);
-  ctx.closePath();
-  ctx.fill();
-
-  // Speed (left) and altitude (right) readouts
-  ctx.textAlign = 'left';
-  ctx.font = 'bold 20px ui-monospace, Consolas, monospace';
-  ctx.fillText(speed.toFixed(0), 24, h / 2);
-  ctx.font = '11px ui-monospace, Consolas, monospace';
-  ctx.fillText('KT', 24, h / 2 + 20);
-
-  ctx.textAlign = 'right';
-  ctx.font = 'bold 20px ui-monospace, Consolas, monospace';
-  ctx.fillText(altitude.toFixed(0), w - 24, h / 2);
-  ctx.font = '11px ui-monospace, Consolas, monospace';
-  ctx.fillText('M', w - 24, h / 2 + 20);
-
-  // Center reticle
   const cx = w / 2;
   const cy = h / 2;
-  ctx.beginPath();
-  ctx.moveTo(cx - 16, cy);
-  ctx.lineTo(cx + 16, cy);
-  ctx.moveTo(cx, cy - 16);
-  ctx.lineTo(cx, cy + 16);
-  ctx.stroke();
 
-  // Callsign / nav readout at bottom
-  if (tick) {
-    ctx.textAlign = 'center';
-    ctx.font = '13px ui-monospace, Consolas, monospace';
-    ctx.fillText(
-      `${tick.callsign} · NEXT ${tick.nextWaypoint.name} · ${tick.distanceToNextKm.toFixed(0)}km · fuel ${tick.fuelPercent.toFixed(0)}%`,
-      cx,
-      h - 24,
-    );
+  if (heading == null || position == null) {
+    ctx.fillText(heading == null ? 'Waiting for compass…' : 'Waiting for GPS…', cx, cy);
+    return;
   }
+
+  const targetBearing = bearingDeg(position, target);
+  const relative = ((targetBearing - heading + 540) % 360) - 180; // -180..180, 0 = straight ahead
+
+  const arrowLen = Math.min(w, h) * 0.18;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((relative * Math.PI) / 180);
+  ctx.beginPath();
+  ctx.moveTo(0, -arrowLen);
+  ctx.lineTo(-arrowLen * 0.35, arrowLen * 0.3);
+  ctx.lineTo(0, arrowLen * 0.1);
+  ctx.lineTo(arrowLen * 0.35, arrowLen * 0.3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.fillText(`${Math.abs(relative).toFixed(0)}° ${relative >= 0 ? 'right' : 'left'}`, cx, cy + arrowLen + 24);
 }
