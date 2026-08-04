@@ -6,17 +6,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.security.KeyStore;
 
-/**
- * Loads the self-signed dev keystore (core/certs/dev-keystore.p12) so
- * TelemetryServerApp can serve WSS/HTTPS instead of WS/HTTP — required for a
- * phone's camera/GPS/compass APIs, which only work on a secure context, and
- * to avoid mixed-content blocking once Ground Control itself is served over
- * HTTPS. Regenerate with:
- *   keytool -genkeypair -alias aviohmi -keyalg RSA -keysize 2048 -validity 3650 \
- *     -keystore core/certs/dev-keystore.p12 -storetype PKCS12 -storepass aviohmi \
- *     -dname "CN=AvioHMI Dev, OU=Dev, O=AvioHMI, L=Local, ST=Local, C=TR" \
- *     -ext "SAN=dns:localhost,ip:127.0.0.1,ip:&lt;your-lan-ip&gt;"
- */
+// loads core/certs/dev-keystore.p12 for WSS/HTTPS (phone sensors need a secure context). regenerate:
+//   keytool -genkeypair -alias aviohmi -keyalg RSA -keysize 2048 -validity 3650 \
+//     -keystore core/certs/dev-keystore.p12 -storetype PKCS12 -storepass aviohmi \
+//     -dname "CN=AvioHMI Dev, OU=Dev, O=AvioHMI, L=Local, ST=Local, C=TR" \
+//     -ext "SAN=dns:localhost,ip:127.0.0.1,ip:<your-lan-ip>"
 public final class TlsSupport {
 
     private static final String KEYSTORE_PATH = "certs/dev-keystore.p12";

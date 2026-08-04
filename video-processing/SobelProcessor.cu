@@ -36,8 +36,7 @@ __global__ void sobelKernel(const unsigned char* input, unsigned char* output, i
     output[y * width + x] = (unsigned char)(magnitude > 255 ? 255 : magnitude);
 }
 
-// RAII wrapper around a single cudaMalloc'd device buffer — move-only, frees
-// itself on scope exit so SobelProcessor::run() has no manual cudaFree calls.
+// frees itself on scope exit, no manual cudaFree needed in run()
 class DeviceBuffer {
 public:
     explicit DeviceBuffer(size_t bytes) {

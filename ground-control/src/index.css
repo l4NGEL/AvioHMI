@@ -234,10 +234,7 @@ body {
   gap: 20px;
 }
 
-/* Fleet & Playback embed a map that should fill the viewport, not a page that
-   scrolls past it. Without a bounded height here, .fleet-layout has nothing to
-   stretch against, so .side-column's own overflow:auto never kicks in — its
-   aircraft list just grows and the whole page scrolls past the map instead. */
+/* bounds .fleet-layout so its aircraft list scrolls internally instead of the whole page */
 .page:has(.fleet-layout) {
   height: 100%;
   min-height: 0;
@@ -270,11 +267,7 @@ body {
   gap: 20px;
   flex: 1;
   min-height: 560px;
-  /* Safety net: align-items:stretch doesn't reliably cap .side-column to the
-     row's height when its content (a long live aircraft list) is much taller
-     than the box — without this it silently grows past its bounded height
-     instead of clipping, and the whole page scrolls again. */
-  overflow: hidden;
+  overflow: hidden; /* align-items:stretch alone doesn't reliably cap .side-column's height */
 }
 
 .card,
@@ -311,10 +304,7 @@ body {
 .map-card {
   position: relative;
   flex: 1;
-  /* .fleet-layout can wrap the map onto its own row on narrower panes; without a
-     floor here the column's height is derived from its content (none, since
-     Leaflet has no intrinsic size), collapsing the map to 0px and rendering blank. */
-  min-height: 420px;
+  min-height: 420px; /* Leaflet has no intrinsic size, so without a floor it collapses to 0 */
   display: flex;
   overflow: hidden;
 }
@@ -1203,12 +1193,7 @@ h3.section-title::before,
 
 }
 
-/* .map-column (min 480px) + .side-column (min 300px) + gap + sidebar/padding
-   need roughly 1090px of window width to fit side by side. Below that,
-   flex-wrap would stack them but leaves each wrapped line sized to its own
-   content instead of the available height, so the aircraft list just grows
-   and the whole page scrolls past the map. A column layout lets the list's
-   flex:1 + overflow-y:auto (already set) actually bound it correctly. */
+/* below ~1090px map+list no longer fit side by side, so stack them instead */
 @media (max-width: 1090px) {
   .fleet-layout {
     flex-wrap: nowrap;

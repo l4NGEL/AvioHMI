@@ -5,10 +5,7 @@
 #include <cctype>
 #include <utility>
 
-// RAII owner of a single-channel (grayscale) pixel buffer, loaded from or
-// written to the binary PGM (P5) format. Move-only, since it owns a raw
-// heap buffer sized for the GPU pipeline (no std::vector here, to keep the
-// same malloc'd-buffer shape SobelProcessor hands to cudaMemcpy).
+// Move-only, so nothing double-frees the buffer we hand to cudaMemcpy.
 class PgmImage {
 public:
     PgmImage() = default;

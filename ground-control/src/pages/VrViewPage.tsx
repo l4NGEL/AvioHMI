@@ -18,13 +18,7 @@ interface AircraftPoint {
   hasAlert: boolean;
 }
 
-/**
- * A live 3D view of the fleet — real WebXR immersive VR when a headset is
- * connected, falling back to a mouse-orbited 3D scene otherwise (same
- * graceful-degradation pattern as TLS/Postgres/ffmpeg elsewhere in Core).
- * Positions come from the same live/demo telemetry as every other page, just
- * projected into a normalized 3D stage instead of onto a 2D map.
- */
+// real WebXR if a headset is connected, otherwise a mouse-orbited 3D scene
 export default function VrViewPage() {
   const { aircraftIds, histories, selectedAircraftId, setSelectedAircraftId, activeAlerts } = useTelemetry();
   const store = useMemo(() => createXRStore(), []);

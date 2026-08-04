@@ -8,11 +8,9 @@ import { CORE_WS_URL } from '../lib/coreEndpoints';
 const DEMO_FALLBACK_DELAY_MS = 3000;
 const DEMO_AIRCRAFT_ID = 'AC-101';
 const MAX_ALERT_LOG = 100;
-// LIVE mode's real aircraft drift in and out of the bounding box; without this,
-// every aircraft ever seen this session stays in the fleet list forever. Four
-// missed 15s Core polls (see LIVE_POLL_INTERVAL_MS in TelemetryServerApp) is a
-// reasonable "probably left the area" signal.
-const STALE_AIRCRAFT_MS = 60_000;
+// drop aircraft that missed 2+ polls (Core polls OpenSky every 60s) so the fleet
+// list doesn't just keep growing as real planes fly out of the bounding box
+const STALE_AIRCRAFT_MS = 150_000;
 
 export interface AlertLogEntry extends Alert {
   timestamp: string;

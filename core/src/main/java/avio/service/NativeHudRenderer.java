@@ -2,15 +2,7 @@ package avio.service;
 
 import java.io.File;
 
-/**
- * JNI bridge into video-processing's native C++/CUDA HUD pipeline
- * (video-processing/hud_native.dll, built by video-processing/build.bat) —
- * calls the same Sobel edge-detection + HUD compositing pipeline in-process
- * instead of spawning edge_detect.exe as a subprocess on every frame.
- * Falls back gracefully to the subprocess path (see TelemetryServerApp) if
- * the native library wasn't built for this platform, matching the project's
- * other optional-capability degradation (Postgres, ffmpeg, TLS).
- */
+// JNI bridge to video-processing/hud_native.dll. Falls back to spawning edge_detect.exe if not built.
 public final class NativeHudRenderer {
     private static final boolean AVAILABLE;
 

@@ -1,11 +1,5 @@
-/**
- * Core's WS/HTTP ports are fixed, but the host must match whatever host the
- * page itself was loaded from — "localhost" only resolves to the phone
- * itself when Ground Control is opened from a phone at the PC's LAN IP.
- * Scheme follows the page's own protocol so a page served over HTTPS (as
- * required for camera/GPS/compass on a real phone) talks wss/https instead
- * of hitting mixed-content blocking.
- */
+// host has to match wherever the page was loaded from, not a hardcoded "localhost"
+// (that would resolve to the phone itself when opened from a phone on the LAN)
 const CORE_WS_PORT = 8765;
 const CORE_HTTP_PORT = 8766;
 

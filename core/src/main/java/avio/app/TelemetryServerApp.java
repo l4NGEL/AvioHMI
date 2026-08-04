@@ -28,18 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-/**
- * Runs the same route simulation as MissionComputerApp, but for multiple
- * aircraft at once, broadcasting every tick over WebSocket and exposing an
- * HTTP endpoint for history playback and the CUDA HUD overlay frame, so
- * Ground Control (React) and Cockpit MFD (Flutter) can connect as live
- * clients — see README.md for the full picture.
- *
- * Two data sources, chosen at startup with AVIO_MODE (default "sim"):
- *   AVIO_MODE=sim  — three synthetic aircraft flown along a fixed route (default).
- *   AVIO_MODE=live — real ADS-B aircraft over Turkey from the free, anonymous
- *                    OpenSky Network REST API (see avio.service.OpenSkyClient).
- */
+// multi-aircraft version of MissionComputerApp, broadcasting over WebSocket + serving history/HUD over HTTP.
+// AVIO_MODE=sim (default) flies 3 synthetic aircraft; AVIO_MODE=live pulls real ADS-B via OpenSkyClient.
 public final class TelemetryServerApp {
 
     private static final int WS_PORT = 8765;
@@ -218,16 +208,8 @@ public final class TelemetryServerApp {
         }
     }
 
-    /**
-     * Real-world data source: polls OpenSky Network's free, anonymous states/all
-     * endpoint for actual ADS-B traffic over Turkey and broadcasts it exactly like
-     * the simulator does, so Ground Control needs no separate code path to render
-     * it. No flight plan exists for real aircraft, so "next waypoint" is reported
-     * as the aircraft's own current position (distance 0) and fuel is unknown
-     * (reported as a fixed 100% so it never trips the LOW_FUEL alert); the
-     * frontend also skips the OFF_COURSE alert and the fixed-route overlay when
-     * mode is "LIVE" (see TelemetryContext.tsx / RouteMap.tsx).
-     */
+    // real aircraft have no flight plan, so "next waypoint" = own position and fuel is a fixed 100%
+    // (frontend skips OFF_COURSE/route overlay in LIVE mode too, see TelemetryContext.tsx)
     private static void runLiveMode() throws Exception {
         boolean hasOpenSkyCredentials = System.getenv("OPENSKY_CLIENT_ID") != null
                 && System.getenv("OPENSKY_CLIENT_SECRET") != null;

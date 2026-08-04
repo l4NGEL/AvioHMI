@@ -14,15 +14,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Polls the OpenSky Network REST API (opensky-network.org) for real-world
- * ADS-B aircraft state vectors within a bounding box. Works anonymously (no
- * API key, but a low daily rate limit), or authenticated via OAuth2 client
- * credentials (OPENSKY_CLIENT_ID / OPENSKY_CLIENT_SECRET env vars — free to
- * generate from an OpenSky account's API Client page) for a much higher
- * limit. Falls back to anonymous if credentials are absent or token fetch
- * fails, matching the project's other optional-capability degradation.
- */
+// Polls OpenSky's states/all REST endpoint. Anonymous by default (low rate limit);
+// uses OAuth2 client-credentials if OPENSKY_CLIENT_ID/SECRET are set.
 public final class OpenSkyClient {
     private static final String STATES_URL = "https://opensky-network.org/api/states/all";
     private static final String TOKEN_URL =

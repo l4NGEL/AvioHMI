@@ -2,9 +2,6 @@
 
 #include "PgmImage.h"
 
-// RAII owner of a 24-bit top-down RGB pixel buffer, with small drawing
-// primitives used by HudCompositor. Grown from a grayscale PgmImage (the
-// Sobel output) so the HUD is composited over the edge-detected frame.
 class RgbImage {
 public:
     RgbImage() = default;

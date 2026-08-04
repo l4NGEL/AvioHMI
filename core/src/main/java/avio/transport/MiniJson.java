@@ -5,11 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Minimal recursive-descent JSON parser (read-only) for consuming third-party
- * API responses (e.g. OpenSky Network's states/all), since this project has
- * no Maven/Gradle available to pull in Jackson/Gson.
- */
+// no Jackson/Gson available (no Maven), so: minimal read-only JSON parser
 public final class MiniJson {
     private final String src;
     private int pos;

@@ -18,14 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-/**
- * Small JDK-only HTTP server (com.sun.net.httpserver, no extra dependency)
- * that exposes what a WebSocket broadcast can't: on-demand history queries
- * for playback, and the CUDA-generated HUD overlay frame. Serves HTTPS
- * instead of HTTP when constructed with an SSLContext — needed so a Ground
- * Control page loaded over HTTPS (required for camera/GPS/compass on a real
- * phone) doesn't hit mixed-content blocking fetching from Core.
- */
+// history + HUD overlay over plain JDK HttpServer. HTTPS if built with an SSLContext.
 public final class TelemetryHttpServer {
     private final HttpServer server;
 

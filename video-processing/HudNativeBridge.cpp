@@ -1,6 +1,4 @@
-// JNI entry point letting Core (Java) call the GPU HUD pipeline in-process
-// instead of spawning edge_detect.exe as a subprocess — see
-// core/src/main/java/avio/service/NativeHudRenderer.java for the Java side.
+// see NativeHudRenderer.java for the Java side
 #include <jni.h>
 #include "HudPipeline.h"
 

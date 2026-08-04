@@ -17,15 +17,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-/**
- * A minimal RFC 6455 WebSocket server built on plain JDK sockets (no external
- * dependencies, since this project has no Maven/Gradle set up). Broadcast-only:
- * it performs the opening handshake and lets the app push text frames to every
- * connected client, but discards whatever clients send back. Serves WSS
- * instead of WS when constructed with an SSLContext — needed so a Ground
- * Control page loaded over HTTPS (required for camera/GPS/compass on a real
- * phone) doesn't hit mixed-content blocking connecting back to Core.
- */
+// hand-rolled RFC 6455 server, broadcast-only (no Maven means no netty/jetty). WSS if built with an SSLContext.
 public final class WebSocketServer {
     private static final String HANDSHAKE_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 

@@ -17,11 +17,7 @@ export function computeAlerts(aircraftId: string, callsign: string, data: Flight
                                fuelPercent: number, route: Route, mode: 'SIM' | 'LIVE' = 'SIM'): Alert[] {
   const alerts: Alert[] = [];
 
-  // OVERSPEED_THRESHOLD_KTS and the off-course check below are tuned for the
-  // demo fleet's fixed 420kt-class profiles and planned route. Real airliners
-  // (LIVE mode) routinely cruise well past 430kt with no fixed flight plan at
-  // all, so both checks would fire on nearly every real aircraft — skip them
-  // outside SIM mode rather than show noise we have no real threshold for.
+  // real airliners cruise past 430kt with no fixed route, so these two would just spam LIVE mode
   if (mode === 'SIM') {
     if (data.speedKts > OVERSPEED_THRESHOLD_KTS) {
       alerts.push({ aircraftId, kind: 'OVERSPEED', message: `${callsign}: OVERSPEED ${data.speedKts.toFixed(0)}kt` });

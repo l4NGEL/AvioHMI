@@ -55,13 +55,8 @@ function FitRouteBounds({ positions }: { positions: [number, number][] }) {
   return null;
 }
 
-/**
- * Leaflet measures its container once at init and never re-checks it. The
- * sidebar's aircraft list can grow a lot after data arrives (esp. in LIVE
- * mode with dozens of real aircraft), which resizes the map card via the
- * flexbox stretch layout — without this, the map is left sized to whatever
- * it happened to be at mount and renders blank.
- */
+// Leaflet only measures its container once at init, so a later resize (the aircraft
+// list growing in LIVE mode) leaves the map stuck at its old size and renders blank.
 function InvalidateSizeOnResize() {
   const map = useMap();
   useEffect(() => {

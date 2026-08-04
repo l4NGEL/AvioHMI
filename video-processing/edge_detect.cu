@@ -1,17 +1,5 @@
-// CUDA image-processing + HUD overlay demo for the AvioHMI sensor pipeline.
-//
-// Thin CLI driver over HudPipeline (frame -> GPU Sobel edge detection ->
-// HUD compositing -> BMP write); see PgmImage/RgbImage/SobelProcessor/
-// HudCompositor/BmpWriter for the actual class-based implementation. This
-// same pipeline is also reachable in-process from Java via HudNativeBridge
-// (hud_native.dll) — see core/src/main/java/avio/service/NativeHudRenderer.java.
-//
-// Usage: edge_detect.exe [headingDeg] [speedKts] [altitudeMeters] [outPath] [inputPgmPath]
-// All arguments are optional; run with none for the original standalone demo.
-// If inputPgmPath is given, that frame (P5 binary PGM, any size) is processed
-// instead of the synthetic disc — this is how Core's HUD thread feeds it a
-// real frame decoded from video-processing/assets/sample_sensor_feed.mp4 via
-// ffmpeg, rather than a hardcoded test pattern.
+// usage: edge_detect.exe [headingDeg] [speedKts] [altitudeMeters] [outPath] [inputPgmPath]
+// all args optional. same pipeline also runs in-process via hud_native.dll (see HudNativeBridge.cpp)
 
 #include <cstdio>
 #include <cstdlib>
