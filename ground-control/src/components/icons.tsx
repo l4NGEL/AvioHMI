@@ -98,6 +98,15 @@ export const LayersIcon = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const VrIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <rect x="2" y="7" width="20" height="11" rx="4" />
+    <circle cx="8" cy="12.5" r="1.6" />
+    <circle cx="16" cy="12.5" r="1.6" />
+    <path d="M11 12.5h2" />
+  </Icon>
+);
+
 export const SpeedIcon = (p: SVGProps<SVGSVGElement>) => (
   <Icon {...p}>
     <circle cx="12" cy="13" r="8" />

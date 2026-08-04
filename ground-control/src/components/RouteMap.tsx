@@ -16,6 +16,8 @@ interface Props {
   selectedAircraftId?: string | null;
   trail?: FlightData[];
   onAircraftClick?: (aircraftId: string) => void;
+  /** False in LIVE mode: real aircraft have no fixed flight plan, so the demo route/waypoints would be misleading. */
+  showRoute?: boolean;
 }
 
 const TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
@@ -53,7 +55,25 @@ function FitRouteBounds({ positions }: { positions: [number, number][] }) {
   return null;
 }
 
-export function RouteMap({ route, aircraftList, selectedAircraftId, trail = [], onAircraftClick }: Props) {
+/**
+ * Leaflet measures its container once at init and never re-checks it. The
+ * sidebar's aircraft list can grow a lot after data arrives (esp. in LIVE
+ * mode with dozens of real aircraft), which resizes the map card via the
+ * flexbox stretch layout — without this, the map is left sized to whatever
+ * it happened to be at mount and renders blank.
+ */
+function InvalidateSizeOnResize() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
+export function RouteMap({ route, aircraftList, selectedAircraftId, trail = [], onAircraftClick, showRoute = true }: Props) {
   const routeLatLngs: [number, number][] = route.waypoints.map((w) => [w.lat, w.lon]);
   const trailLatLngs: [number, number][] = trail.map((t) => [t.lat, t.lon]);
 
@@ -66,14 +86,17 @@ export function RouteMap({ route, aircraftList, selectedAircraftId, trail = [], 
     >
       <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} subdomains="abcd" maxZoom={19} />
       <FitRouteBounds positions={routeLatLngs} />
+      <InvalidateSizeOnResize />
 
-      <Polyline positions={routeLatLngs} pathOptions={{ color: '#2f6f4f', weight: 2, dashArray: '6 6' }} />
+      {showRoute && (
+        <Polyline positions={routeLatLngs} pathOptions={{ color: '#2f6f4f', weight: 2, dashArray: '6 6' }} />
+      )}
 
       {trailLatLngs.length > 1 && (
         <Polyline positions={trailLatLngs} pathOptions={{ color: '#ffd166', weight: 2.5, opacity: 0.65 }} />
       )}
 
-      {route.waypoints.map((w: Waypoint) => (
+      {showRoute && route.waypoints.map((w: Waypoint) => (
         <CircleMarker
           key={w.name}
           center={[w.lat, w.lon]}

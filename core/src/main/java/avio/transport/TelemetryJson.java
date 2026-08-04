@@ -16,9 +16,10 @@ public final class TelemetryJson {
     private TelemetryJson() {
     }
 
-    public static String route(Route route) {
+    public static String route(Route route, String mode) {
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"type\":\"route\",\"route\":{\"id\":\"").append(escape(route.getId()))
+        sb.append("{\"type\":\"route\",\"mode\":\"").append(escape(mode))
+                .append("\",\"route\":{\"id\":\"").append(escape(route.getId()))
                 .append("\",\"name\":\"").append(escape(route.getName()))
                 .append("\",\"waypoints\":[");
         List<Waypoint> waypoints = route.getWaypoints();

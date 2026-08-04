@@ -6,6 +6,7 @@ import {
   AlertIcon,
   CameraIcon,
   LayersIcon,
+  VrIcon,
   ReportIcon,
   SettingsIcon,
 } from '../components/icons';
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { to: '/alerts', label: 'Alerts', icon: AlertIcon, end: false },
   { to: '/sensor-feed', label: 'Sensor Feed', icon: CameraIcon, end: false },
   { to: '/ar-view', label: 'AR View', icon: LayersIcon, end: false },
+  { to: '/vr-view', label: 'VR View', icon: VrIcon, end: false },
   { to: '/reports', label: 'Reports', icon: ReportIcon, end: false },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, end: false },
 ] as const;

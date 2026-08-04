@@ -60,6 +60,16 @@ export function crossTrackDistanceKm(p: LatLon, a: LatLon, b: LatLon): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+/** Flat equirectangular projection of `point` relative to `origin`, in km. x = east, y = north. */
+export function toLocalKm(origin: LatLon, point: LatLon): { x: number; y: number } {
+  const kmPerDegLat = 111.32;
+  const kmPerDegLon = 111.32 * Math.cos((origin.lat * Math.PI) / 180);
+  return {
+    x: (point.lon - origin.lon) * kmPerDegLon,
+    y: (point.lat - origin.lat) * kmPerDegLat,
+  };
+}
+
 export function minCrossTrackToRouteKm(p: LatLon, waypoints: LatLon[]): number {
   let min = Infinity;
   for (let i = 0; i < waypoints.length - 1; i++) {

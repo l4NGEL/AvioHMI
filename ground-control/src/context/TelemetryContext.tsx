@@ -3,11 +3,16 @@ import { SAMPLE_ROUTE, TelemetrySimulator } from '../mock/telemetryFeed';
 import type { Route, TelemetryTick } from '../types/telemetry';
 import { useTelemetrySocket } from '../hooks/useTelemetrySocket';
 import { computeAlerts, type Alert } from '../lib/alerts';
+import { CORE_WS_URL } from '../lib/coreEndpoints';
 
-const CORE_WS_URL = 'ws://localhost:8765';
 const DEMO_FALLBACK_DELAY_MS = 3000;
 const DEMO_AIRCRAFT_ID = 'AC-101';
 const MAX_ALERT_LOG = 100;
+// LIVE mode's real aircraft drift in and out of the bounding box; without this,
+// every aircraft ever seen this session stays in the fleet list forever. Four
+// missed 15s Core polls (see LIVE_POLL_INTERVAL_MS in TelemetryServerApp) is a
+// reasonable "probably left the area" signal.
+const STALE_AIRCRAFT_MS = 60_000;
 
 export interface AlertLogEntry extends Alert {
   timestamp: string;
@@ -24,6 +29,7 @@ export interface AircraftSummary {
 
 interface TelemetryContextValue {
   route: Route;
+  dataMode: 'SIM' | 'LIVE';
   usingLive: boolean;
   histories: Record<string, TelemetryTick[]>;
   aircraftIds: string[];
@@ -39,13 +45,22 @@ interface TelemetryContextValue {
 const TelemetryContext = createContext<TelemetryContextValue | null>(null);
 
 export function TelemetryProvider({ children }: { children: ReactNode }) {
-  const { route: liveRoute, historiesByAircraft, status } = useTelemetrySocket(CORE_WS_URL);
+  const { route: liveRoute, dataMode: liveDataMode, historiesByAircraft, status } = useTelemetrySocket(CORE_WS_URL);
 
   const simulatorRef = useRef(new TelemetrySimulator(DEMO_AIRCRAFT_ID, 'AVIO101', SAMPLE_ROUTE, 420, 0.03));
   const [demoTicks, setDemoTicks] = useState<TelemetryTick[]>([]);
   const [demoMode, setDemoMode] = useState(false);
 
-  const usingLive = status === 'live' && Object.keys(historiesByAircraft).length > 0;
+  const freshHistoriesByAircraft: Record<string, TelemetryTick[]> = {};
+  const now = Date.now();
+  for (const [id, ticks] of Object.entries(historiesByAircraft)) {
+    const latest = ticks[ticks.length - 1];
+    if (now - new Date(latest.data.timestamp).getTime() < STALE_AIRCRAFT_MS) {
+      freshHistoriesByAircraft[id] = ticks;
+    }
+  }
+
+  const usingLive = status === 'live' && Object.keys(freshHistoriesByAircraft).length > 0;
 
   useEffect(() => {
     if (usingLive) {
@@ -65,8 +80,9 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
   }, [demoMode]);
 
   const route = usingLive ? liveRoute ?? SAMPLE_ROUTE : SAMPLE_ROUTE;
+  const dataMode: 'SIM' | 'LIVE' = usingLive ? liveDataMode : 'SIM';
   const histories: Record<string, TelemetryTick[]> = usingLive
-    ? historiesByAircraft
+    ? freshHistoriesByAircraft
     : demoTicks.length > 0
       ? { [DEMO_AIRCRAFT_ID]: demoTicks }
       : {};
@@ -86,7 +102,7 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
   const activeAlerts = aircraftIds.flatMap((id) => {
     const h = histories[id];
     const latest = h[h.length - 1];
-    return computeAlerts(id, latest.callsign, latest.data, latest.fuelPercent, route);
+    return computeAlerts(id, latest.callsign, latest.data, latest.fuelPercent, route, dataMode);
   });
 
   const aircraftSummaries: AircraftSummary[] = aircraftIds.map((id) => {
@@ -122,6 +138,7 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
 
   const value: TelemetryContextValue = {
     route,
+    dataMode,
     usingLive,
     histories,
     aircraftIds,

@@ -14,16 +14,23 @@ export interface Alert {
 }
 
 export function computeAlerts(aircraftId: string, callsign: string, data: FlightData,
-                               fuelPercent: number, route: Route): Alert[] {
+                               fuelPercent: number, route: Route, mode: 'SIM' | 'LIVE' = 'SIM'): Alert[] {
   const alerts: Alert[] = [];
 
-  if (data.speedKts > OVERSPEED_THRESHOLD_KTS) {
-    alerts.push({ aircraftId, kind: 'OVERSPEED', message: `${callsign}: OVERSPEED ${data.speedKts.toFixed(0)}kt` });
-  }
+  // OVERSPEED_THRESHOLD_KTS and the off-course check below are tuned for the
+  // demo fleet's fixed 420kt-class profiles and planned route. Real airliners
+  // (LIVE mode) routinely cruise well past 430kt with no fixed flight plan at
+  // all, so both checks would fire on nearly every real aircraft — skip them
+  // outside SIM mode rather than show noise we have no real threshold for.
+  if (mode === 'SIM') {
+    if (data.speedKts > OVERSPEED_THRESHOLD_KTS) {
+      alerts.push({ aircraftId, kind: 'OVERSPEED', message: `${callsign}: OVERSPEED ${data.speedKts.toFixed(0)}kt` });
+    }
 
-  const crossTrackKm = minCrossTrackToRouteKm(data, route.waypoints);
-  if (crossTrackKm > OFF_COURSE_THRESHOLD_KM) {
-    alerts.push({ aircraftId, kind: 'OFF_COURSE', message: `${callsign}: OFF COURSE ${crossTrackKm.toFixed(1)}km` });
+    const crossTrackKm = minCrossTrackToRouteKm(data, route.waypoints);
+    if (crossTrackKm > OFF_COURSE_THRESHOLD_KM) {
+      alerts.push({ aircraftId, kind: 'OFF_COURSE', message: `${callsign}: OFF COURSE ${crossTrackKm.toFixed(1)}km` });
+    }
   }
 
   if (fuelPercent < LOW_FUEL_THRESHOLD_PERCENT) {

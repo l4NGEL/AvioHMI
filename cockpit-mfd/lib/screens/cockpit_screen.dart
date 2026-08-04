@@ -5,6 +5,7 @@ import '../models/flight_state.dart';
 import '../widgets/attitude_indicator.dart';
 import '../widgets/compass_rose.dart';
 import '../widgets/heading_strip.dart';
+import '../widgets/panel_background.dart';
 import '../widgets/tape_gauge.dart';
 
 enum MfdPage { pfd, nav, sys }
@@ -30,13 +31,15 @@ class _CockpitScreenState extends State<CockpitScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildPageButtons(flight),
-            const Divider(color: Colors.white24, height: 1),
-            Expanded(child: _buildPageContent(flight)),
-          ],
+      body: PanelBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildPageButtons(flight),
+              const Divider(color: Colors.white24, height: 1),
+              Expanded(child: _buildPageContent(flight)),
+            ],
+          ),
         ),
       ),
     );

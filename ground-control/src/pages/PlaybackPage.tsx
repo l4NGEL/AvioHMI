@@ -4,7 +4,7 @@ import { RouteMap } from '../components/RouteMap';
 import { AircraftList } from '../components/AircraftList';
 
 export default function PlaybackPage() {
-  const { route, aircraftSummaries, selectedAircraftId, setSelectedAircraftId, selectedLatest } = useTelemetry();
+  const { route, dataMode, aircraftSummaries, selectedAircraftId, setSelectedAircraftId, selectedLatest } = useTelemetry();
   const playback = useHistoryPlayback(selectedAircraftId);
 
   if (!selectedLatest || !selectedAircraftId) return null;
@@ -24,7 +24,13 @@ export default function PlaybackPage() {
       <div className="fleet-layout">
         <div className="map-column">
           <div className="map-card">
-            <RouteMap route={route} aircraftList={mapAircraft} selectedAircraftId={selectedAircraftId} trail={[]} />
+            <RouteMap
+              route={route}
+              aircraftList={mapAircraft}
+              selectedAircraftId={selectedAircraftId}
+              trail={[]}
+              showRoute={dataMode !== 'LIVE'}
+            />
           </div>
           <div className="playback-controls">
             <button onClick={() => playback.setPlaying((p) => !p)} disabled={playback.points.length === 0}>

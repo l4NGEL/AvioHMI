@@ -7,6 +7,7 @@ import PlaybackPage from './pages/PlaybackPage';
 import AlertsPage from './pages/AlertsPage';
 import SensorFeedPage from './pages/SensorFeedPage';
 import ArViewPage from './pages/ArViewPage';
+import VrViewPage from './pages/VrViewPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import './index.css';
@@ -22,6 +23,7 @@ function App() {
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/sensor-feed" element={<SensorFeedPage />} />
           <Route path="/ar-view" element={<ArViewPage />} />
+          <Route path="/vr-view" element={<VrViewPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>

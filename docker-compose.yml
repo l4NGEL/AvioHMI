@@ -13,12 +13,32 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
 
+  # Java mission-computer core. Builds and runs with plain javac (no Maven), same
+  # as core/build.sh + core/serve.sh — see core/Dockerfile. Note: the CUDA HUD
+  # overlay (video-processing/) isn't containerized here — it's a native Windows
+  # binary that also needs GPU passthrough, so Sensor Feed just reports the
+  # overlay as unavailable inside Compose, same graceful-degradation pattern as
+  # a missing Postgres/ffmpeg on bare metal.
+  core:
+    build: ./core
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/aviohmi
+      DB_USER: aviohmi
+      DB_PASSWORD: aviohmi
+      # Optional: AVIO_MODE=live plus OPENSKY_CLIENT_ID/OPENSKY_CLIENT_SECRET for real ADS-B data.
+    ports:
+      - "8765:8765"
+      - "8766:8766"
+    depends_on:
+      - postgres
+
   ground-control:
     build: ./ground-control
     ports:
       - "5173:5173"
     depends_on:
       - postgres
+      - core
 
 volumes:
   pgdata:

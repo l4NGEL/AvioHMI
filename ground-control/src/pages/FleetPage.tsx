@@ -9,6 +9,7 @@ import { TelemetryChart } from '../components/TelemetryChart';
 export default function FleetPage() {
   const {
     route,
+    dataMode,
     aircraftIds,
     aircraftSummaries,
     histories,
@@ -30,7 +31,10 @@ export default function FleetPage() {
     <div className="page">
       <div className="page-header">
         <h1>Fleet &amp; Map</h1>
-        <p className="page-subtitle">{route.name}</p>
+        <p className="page-subtitle">
+          {route.name}
+          {dataMode === 'LIVE' && <span className="mode-badge mode-badge-live"> ● LIVE — real ADS-B (OpenSky)</span>}
+        </p>
       </div>
 
       <AlertBanner alerts={activeAlerts} />
@@ -44,6 +48,7 @@ export default function FleetPage() {
               selectedAircraftId={selectedAircraftId}
               trail={selectedHistory.map((t) => t.data)}
               onAircraftClick={setSelectedAircraftId}
+              showRoute={dataMode !== 'LIVE'}
             />
           </div>
         </div>

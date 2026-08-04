@@ -4,7 +4,10 @@ import avio.data.PostgresTelemetryRepository;
 import avio.domain.FlightData;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
 
+import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -18,18 +21,32 @@ import java.util.function.Supplier;
 /**
  * Small JDK-only HTTP server (com.sun.net.httpserver, no extra dependency)
  * that exposes what a WebSocket broadcast can't: on-demand history queries
- * for playback, and the CUDA-generated HUD overlay frame.
+ * for playback, and the CUDA-generated HUD overlay frame. Serves HTTPS
+ * instead of HTTP when constructed with an SSLContext — needed so a Ground
+ * Control page loaded over HTTPS (required for camera/GPS/compass on a real
+ * phone) doesn't hit mixed-content blocking fetching from Core.
  */
 public final class TelemetryHttpServer {
     private final HttpServer server;
 
     public TelemetryHttpServer(int port, PostgresTelemetryRepository postgres,
-                                List<String> aircraftIds, Supplier<File> overlayFileSupplier) throws IOException {
-        server = HttpServer.create(new InetSocketAddress(port), 0);
+                                Supplier<List<String>> aircraftIdsSupplier, Supplier<File> overlayFileSupplier) throws IOException {
+        this(port, postgres, aircraftIdsSupplier, overlayFileSupplier, null);
+    }
+
+    public TelemetryHttpServer(int port, PostgresTelemetryRepository postgres, Supplier<List<String>> aircraftIdsSupplier,
+                                Supplier<File> overlayFileSupplier, SSLContext sslContext) throws IOException {
+        if (sslContext != null) {
+            HttpsServer httpsServer = HttpsServer.create(new InetSocketAddress(port), 0);
+            httpsServer.setHttpsConfigurator(new HttpsConfigurator(sslContext));
+            server = httpsServer;
+        } else {
+            server = HttpServer.create(new InetSocketAddress(port), 0);
+        }
 
         server.createContext("/aircraft", exchange -> {
             withCors(exchange);
-            writeJson(exchange, TelemetryJson.stringArray(aircraftIds));
+            writeJson(exchange, TelemetryJson.stringArray(aircraftIdsSupplier.get()));
         });
 
         server.createContext("/history", exchange -> {
@@ -38,6 +55,7 @@ public final class TelemetryHttpServer {
                 writeJson(exchange, "[]");
                 return;
             }
+            List<String> aircraftIds = aircraftIdsSupplier.get();
             Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
             String aircraftId = query.getOrDefault("aircraftId", aircraftIds.isEmpty() ? "" : aircraftIds.get(0));
             int limit = Integer.parseInt(query.getOrDefault("limit", "300"));

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { HistoryPoint } from '../types/telemetry';
+import { CORE_HTTP_BASE as HTTP_BASE } from '../lib/coreEndpoints';
 
-const HTTP_BASE = 'http://localhost:8766';
 const PLAYBACK_TICK_MS = 300;
 
 /** Fetches persisted history for an aircraft from Core's /history endpoint and provides scrub/play controls. */

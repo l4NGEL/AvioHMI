@@ -144,7 +144,7 @@ export default function DashboardPage() {
             </button>
           </div>
           <ul className="simple-list">
-            {aircraftSummaries.map((a) => (
+            {aircraftSummaries.slice(0, 6).map((a) => (
               <li key={a.aircraftId} className="clickable" onClick={() => goToAircraft(a.aircraftId)}>
                 <span className="simple-list-callsign">{a.callsign}</span>
                 <span>
@@ -153,6 +153,9 @@ export default function DashboardPage() {
               </li>
             ))}
           </ul>
+          {aircraftSummaries.length > 6 && (
+            <p className="empty-hint">+{aircraftSummaries.length - 6} more — open the map for the full fleet.</p>
+          )}
         </div>
       </div>
     </div>

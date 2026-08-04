@@ -234,6 +234,15 @@ body {
   gap: 20px;
 }
 
+/* Fleet & Playback embed a map that should fill the viewport, not a page that
+   scrolls past it. Without a bounded height here, .fleet-layout has nothing to
+   stretch against, so .side-column's own overflow:auto never kicks in — its
+   aircraft list just grows and the whole page scrolls past the map instead. */
+.page:has(.fleet-layout) {
+  height: 100%;
+  min-height: 0;
+}
+
 .page-header h1 {
   margin: 0 0 4px;
   font-size: 22px;
@@ -248,12 +257,24 @@ body {
   max-width: 720px;
 }
 
+.mode-badge-live {
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
 .fleet-layout {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
   gap: 20px;
+  flex: 1;
   min-height: 560px;
+  /* Safety net: align-items:stretch doesn't reliably cap .side-column to the
+     row's height when its content (a long live aircraft list) is much taller
+     than the box — without this it silently grows past its bounded height
+     instead of clipping, and the whole page scrolls again. */
+  overflow: hidden;
 }
 
 .card,
@@ -283,13 +304,17 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  height: 100%;
   min-height: 0;
 }
 
 .map-card {
   position: relative;
   flex: 1;
-  min-height: 0;
+  /* .fleet-layout can wrap the map onto its own row on narrower panes; without a
+     floor here the column's height is derived from its content (none, since
+     Leaflet has no intrinsic size), collapsing the map to 0px and rendering blank. */
+  min-height: 420px;
   display: flex;
   overflow: hidden;
 }
@@ -300,6 +325,7 @@ body {
   gap: 12px;
   flex: 1 1 300px;
   min-width: 300px;
+  height: 100%;
   min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
@@ -1115,9 +1141,91 @@ h3.section-title::before,
   cursor: pointer;
 }
 
+.vr-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vr-enter-button {
+  background: var(--accent);
+  color: #06150f;
+  border: none;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.vr-enter-button:disabled {
+  background: var(--border);
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.vr-support-note {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.vr-canvas-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.vr-canvas-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0d1218;
+}
+
+.vr-orbit-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  background: rgba(13, 18, 24, 0.75);
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
 @media (max-width: 900px) {
   .dashboard-mid-row,
   .dashboard-bottom-row {
     grid-template-columns: 1fr;
+  }
+
+}
+
+/* .map-column (min 480px) + .side-column (min 300px) + gap + sidebar/padding
+   need roughly 1090px of window width to fit side by side. Below that,
+   flex-wrap would stack them but leaves each wrapped line sized to its own
+   content instead of the available height, so the aircraft list just grows
+   and the whole page scrolls past the map. A column layout lets the list's
+   flex:1 + overflow-y:auto (already set) actually bound it correctly. */
+@media (max-width: 1090px) {
+  .fleet-layout {
+    flex-wrap: nowrap;
+    flex-direction: column;
+  }
+
+  .map-column {
+    flex: 0 0 auto;
+    height: auto;
+  }
+
+  .map-card {
+    min-height: 260px;
+  }
+
+  .side-column {
+    flex: 1 1 auto;
+    height: auto;
   }
 }

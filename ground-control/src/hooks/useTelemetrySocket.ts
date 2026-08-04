@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import type { Route, TelemetryTick } from '../types/telemetry';
 
 type ServerMessage =
-  | { type: 'route'; route: Route }
+  | { type: 'route'; route: Route; mode?: 'SIM' | 'LIVE' }
   | ({ type: 'telemetry' } & TelemetryTick);
 
 export type ConnectionStatus = 'connecting' | 'live' | 'offline';
+export type DataMode = 'SIM' | 'LIVE';
 
 const RECONNECT_DELAY_MS = 2000;
 const MAX_BUFFERED_TICKS = 200;
@@ -17,6 +18,7 @@ const MAX_BUFFERED_TICKS = 200;
  */
 export function useTelemetrySocket(url: string) {
   const [route, setRoute] = useState<Route | null>(null);
+  const [dataMode, setDataMode] = useState<DataMode>('SIM');
   const [historiesByAircraft, setHistoriesByAircraft] = useState<Record<string, TelemetryTick[]>>({});
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
 
@@ -37,6 +39,7 @@ export function useTelemetrySocket(url: string) {
         const msg = JSON.parse(event.data as string) as ServerMessage;
         if (msg.type === 'route') {
           setRoute(msg.route);
+          if (msg.mode) setDataMode(msg.mode);
         } else if (msg.type === 'telemetry') {
           setHistoriesByAircraft((prev) => {
             const existing = prev[msg.aircraftId] ?? [];
@@ -65,5 +68,5 @@ export function useTelemetrySocket(url: string) {
     };
   }, [url]);
 
-  return { route, historiesByAircraft, status };
+  return { route, dataMode, historiesByAircraft, status };
 }

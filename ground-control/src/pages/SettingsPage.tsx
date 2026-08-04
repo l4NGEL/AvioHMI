@@ -1,9 +1,10 @@
 import { useTelemetry } from '../context/TelemetryContext';
+import { CORE_WS_URL, CORE_HTTP_BASE } from '../lib/coreEndpoints';
 
 const SESSION_KEY = 'aviohmi.demoAuthenticated';
 
 export default function SettingsPage() {
-  const { usingLive } = useTelemetry();
+  const { usingLive, dataMode } = useTelemetry();
 
   function handleSignOut() {
     sessionStorage.removeItem(SESSION_KEY);
@@ -21,16 +22,24 @@ export default function SettingsPage() {
         <h3 className="section-title">Connection</h3>
         <div className="settings-row">
           <span>Telemetry WebSocket</span>
-          <span className="mono">ws://localhost:8765</span>
+          <span className="mono">{CORE_WS_URL}</span>
         </div>
         <div className="settings-row">
           <span>History / Sensor Feed HTTP</span>
-          <span className="mono">http://localhost:8766</span>
+          <span className="mono">{CORE_HTTP_BASE}</span>
         </div>
         <div className="settings-row">
           <span>Status</span>
           <span className={usingLive ? 'status-live' : 'status-demo'}>
             {usingLive ? '● LIVE — connected to Core' : '● OFFLINE PREVIEW — local simulator'}
+          </span>
+        </div>
+        <div className="settings-row">
+          <span>Data Source</span>
+          <span className={dataMode === 'LIVE' ? 'status-live' : 'status-demo'}>
+            {dataMode === 'LIVE'
+              ? '● Real ADS-B traffic (OpenSky Network, Turkish airspace)'
+              : '● Simulated fleet (Core, AVIO_MODE=sim)'}
           </span>
         </div>
       </div>

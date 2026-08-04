@@ -1,5 +1,6 @@
 # Java core
 core/out/
+core/.env.local
 
 # Node / Vite
 node_modules/
@@ -14,6 +15,7 @@ cockpit-mfd/.metadata
 
 # CUDA build/demo output
 video-processing/*.exe
+video-processing/*.dll
 video-processing/*.pgm
 video-processing/*.png
 video-processing/*.bmp

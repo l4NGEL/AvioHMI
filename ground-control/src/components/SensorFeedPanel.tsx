@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { CORE_HTTP_BASE } from '../lib/coreEndpoints';
 
-const OVERLAY_URL = 'http://localhost:8766/overlay.bmp';
+const OVERLAY_URL = `${CORE_HTTP_BASE}/overlay.bmp`;
 const REFRESH_MS = 3000;
 
 /** Polls Core's HTTP endpoint for the CUDA-generated HUD overlay frame (see video-processing/edge_detect.cu). */

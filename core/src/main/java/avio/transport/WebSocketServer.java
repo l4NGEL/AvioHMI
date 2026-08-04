@@ -1,5 +1,7 @@
 package avio.transport;
 
+import javax.net.ServerSocketFactory;
+import javax.net.ssl.SSLContext;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,19 +21,28 @@ import java.util.function.Consumer;
  * A minimal RFC 6455 WebSocket server built on plain JDK sockets (no external
  * dependencies, since this project has no Maven/Gradle set up). Broadcast-only:
  * it performs the opening handshake and lets the app push text frames to every
- * connected client, but discards whatever clients send back.
+ * connected client, but discards whatever clients send back. Serves WSS
+ * instead of WS when constructed with an SSLContext — needed so a Ground
+ * Control page loaded over HTTPS (required for camera/GPS/compass on a real
+ * phone) doesn't hit mixed-content blocking connecting back to Core.
  */
 public final class WebSocketServer {
     private static final String HANDSHAKE_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
     private final int port;
+    private final SSLContext sslContext;
     private final List<ClientConnection> clients = new CopyOnWriteArrayList<>();
     private Consumer<ClientConnection> onClientConnected;
     private ServerSocket serverSocket;
     private volatile boolean running = false;
 
     public WebSocketServer(int port) {
+        this(port, null);
+    }
+
+    public WebSocketServer(int port, SSLContext sslContext) {
         this.port = port;
+        this.sslContext = sslContext;
     }
 
     public void onClientConnected(Consumer<ClientConnection> handler) {
@@ -39,7 +50,10 @@ public final class WebSocketServer {
     }
 
     public void start() throws IOException {
-        serverSocket = new ServerSocket(port);
+        ServerSocketFactory factory = sslContext != null
+                ? sslContext.getServerSocketFactory()
+                : ServerSocketFactory.getDefault();
+        serverSocket = factory.createServerSocket(port);
         running = true;
         Thread acceptThread = new Thread(this::acceptLoop, "ws-accept");
         acceptThread.setDaemon(true);

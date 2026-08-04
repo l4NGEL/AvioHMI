@@ -7,18 +7,26 @@ import avio.domain.FlightData;
 import avio.domain.Route;
 import avio.domain.Waypoint;
 import avio.service.NavigationService;
+import avio.service.NativeHudRenderer;
+import avio.service.OpenSkyClient;
 import avio.service.SensorSimulator;
 import avio.transport.FfmpegLocator;
 import avio.transport.TelemetryHttpServer;
 import avio.transport.TelemetryJson;
+import avio.transport.TlsSupport;
 import avio.transport.WebSocketServer;
 
+import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * Runs the same route simulation as MissionComputerApp, but for multiple
@@ -26,15 +34,31 @@ import java.util.Locale;
  * HTTP endpoint for history playback and the CUDA HUD overlay frame, so
  * Ground Control (React) and Cockpit MFD (Flutter) can connect as live
  * clients — see README.md for the full picture.
+ *
+ * Two data sources, chosen at startup with AVIO_MODE (default "sim"):
+ *   AVIO_MODE=sim  — three synthetic aircraft flown along a fixed route (default).
+ *   AVIO_MODE=live — real ADS-B aircraft over Turkey from the free, anonymous
+ *                    OpenSky Network REST API (see avio.service.OpenSkyClient).
  */
 public final class TelemetryServerApp {
 
     private static final int WS_PORT = 8765;
     private static final int HTTP_PORT = 8766;
     private static final long TICK_MILLIS = 500;
-    private static final String DB_URL = "jdbc:postgresql://localhost:5433/aviohmi";
-    private static final String DB_USER = "aviohmi";
-    private static final String DB_PASSWORD = "aviohmi";
+    // Overridable via env vars so the same jar works unchanged both on the host (where Postgres
+    // is published on 5433 to dodge this machine's native Postgres on 5432, see docker-compose.yml)
+    // and inside Docker Compose's own network (where it's the "postgres" service on its default 5432).
+    private static final String DB_URL =
+            System.getenv().getOrDefault("DB_URL", "jdbc:postgresql://localhost:5433/aviohmi");
+    private static final String DB_USER = System.getenv().getOrDefault("DB_USER", "aviohmi");
+    private static final String DB_PASSWORD = System.getenv().getOrDefault("DB_PASSWORD", "aviohmi");
+
+    private static final double TURKEY_LAMIN = 35.5;
+    private static final double TURKEY_LOMIN = 25.5;
+    private static final double TURKEY_LAMAX = 42.5;
+    private static final double TURKEY_LOMAX = 45.0;
+    private static final long LIVE_POLL_INTERVAL_MS = 60_000;
+    private static final int LIVE_MAX_AIRCRAFT = 30;
 
     /** Per-aircraft profile: nominal speed plus how much it drifts off nominal, to give each a distinct personality on the map. */
     private static final class AircraftProfile {
@@ -77,7 +101,55 @@ public final class TelemetryServerApp {
         }
     }
 
+    /** The two servers plus the TLS/scheme info every mode needs after bringing them up. */
+    private record ServerBundle(WebSocketServer ws, TelemetryHttpServer http) {
+    }
+
     public static void main(String[] args) throws Exception {
+        String mode = System.getenv().getOrDefault("AVIO_MODE", "sim").trim().toLowerCase(Locale.ROOT);
+        if (mode.equals("live") || mode.equals("opensky")) {
+            runLiveMode();
+        } else {
+            runSimMode();
+        }
+    }
+
+    /** Brings up the WebSocket + HTTP servers identically for both modes; only the route/mode label and aircraft-id source differ. */
+    private static ServerBundle bringUpServers(PostgresTelemetryRepository postgresRepo,
+                                                Supplier<List<String>> aircraftIdsSupplier, File overlayFile,
+                                                Route routeForNewClients, String modeLabel) throws Exception {
+        SSLContext tls = TlsSupport.loadDevContext();
+        String scheme = tls != null ? "wss" : "ws";
+        String httpScheme = tls != null ? "https" : "http";
+        if (tls != null) {
+            System.out.println("Loaded core/certs/dev-keystore.p12 — serving " + scheme + "/" + httpScheme
+                    + " so a phone loading Ground Control over HTTPS doesn't hit mixed-content blocking.");
+        } else {
+            System.out.println("No core/certs/dev-keystore.p12 — serving plain ws/http (fine for desktop; "
+                    + "a phone needs HTTPS for camera/GPS/compass, see README).");
+        }
+
+        WebSocketServer wsServer = new WebSocketServer(WS_PORT, tls);
+        wsServer.onClientConnected(client -> {
+            try {
+                client.sendText(TelemetryJson.route(routeForNewClients, modeLabel));
+            } catch (Exception e) {
+                System.err.println("Failed to send route to new client: " + e.getMessage());
+            }
+        });
+        wsServer.start();
+        System.out.println("Telemetry WebSocket server listening on " + scheme + "://localhost:" + WS_PORT);
+
+        TelemetryHttpServer httpServer =
+                new TelemetryHttpServer(HTTP_PORT, postgresRepo, aircraftIdsSupplier, () -> overlayFile, tls);
+        httpServer.start();
+        System.out.println("Telemetry HTTP server (history + HUD overlay) listening on "
+                + httpScheme + "://localhost:" + HTTP_PORT);
+
+        return new ServerBundle(wsServer, httpServer);
+    }
+
+    private static void runSimMode() throws Exception {
         Route route = new Route("RT-1", "Ankara-Istanbul-Izmir-Antalya", List.of(
                 new Waypoint("Ankara Esenboga", 40.1281, 32.9951, 950),
                 new Waypoint("Istanbul", 41.0082, 28.9784, 1200),
@@ -107,21 +179,9 @@ public final class TelemetryServerApp {
             System.out.println("Postgres not reachable (docker compose up -d postgres) — using in-memory history; /history will be empty.");
         }
 
-        WebSocketServer wsServer = new WebSocketServer(WS_PORT);
-        wsServer.onClientConnected(client -> {
-            try {
-                client.sendText(TelemetryJson.route(route));
-            } catch (Exception e) {
-                System.err.println("Failed to send route to new client: " + e.getMessage());
-            }
-        });
-        wsServer.start();
-        System.out.println("Telemetry WebSocket server listening on ws://localhost:" + WS_PORT);
-
         File overlayFile = new File("../video-processing/live_overlay.bmp");
-        TelemetryHttpServer httpServer = new TelemetryHttpServer(HTTP_PORT, postgresRepo, aircraftIds, () -> overlayFile);
-        httpServer.start();
-        System.out.println("Telemetry HTTP server (history + HUD overlay) listening on http://localhost:" + HTTP_PORT);
+        ServerBundle servers = bringUpServers(postgresRepo, () -> aircraftIds, overlayFile, route, "SIM");
+        WebSocketServer wsServer = servers.ws();
 
         startHudOverlayThread(aircraft.get(0), overlayFile);
 
@@ -158,6 +218,92 @@ public final class TelemetryServerApp {
         }
     }
 
+    /**
+     * Real-world data source: polls OpenSky Network's free, anonymous states/all
+     * endpoint for actual ADS-B traffic over Turkey and broadcasts it exactly like
+     * the simulator does, so Ground Control needs no separate code path to render
+     * it. No flight plan exists for real aircraft, so "next waypoint" is reported
+     * as the aircraft's own current position (distance 0) and fuel is unknown
+     * (reported as a fixed 100% so it never trips the LOW_FUEL alert); the
+     * frontend also skips the OFF_COURSE alert and the fixed-route overlay when
+     * mode is "LIVE" (see TelemetryContext.tsx / RouteMap.tsx).
+     */
+    private static void runLiveMode() throws Exception {
+        boolean hasOpenSkyCredentials = System.getenv("OPENSKY_CLIENT_ID") != null
+                && System.getenv("OPENSKY_CLIENT_SECRET") != null;
+        System.out.println("AVIO_MODE=live — using real ADS-B data from OpenSky Network "
+                + (hasOpenSkyCredentials
+                        ? "(authenticated via OPENSKY_CLIENT_ID/SECRET — higher rate limit)"
+                        : "(anonymous — low daily rate limit; set OPENSKY_CLIENT_ID/OPENSKY_CLIENT_SECRET for more)")
+                + " instead of the simulator. Set AVIO_MODE=sim (or unset) to go back to the simulated fleet.");
+
+        Route liveRoute = new Route("RT-LIVE", "Live Turkish Airspace (OpenSky Network)", List.of(
+                new Waypoint("Coverage SW", TURKEY_LAMIN, TURKEY_LOMIN, 0),
+                new Waypoint("Coverage NE", TURKEY_LAMAX, TURKEY_LOMAX, 0)
+        ));
+
+        PostgresTelemetryRepository postgresRepo = tryConnectPostgres();
+        TelemetryRepository telemetryRepository = postgresRepo != null ? postgresRepo : new InMemoryTelemetryRepository();
+        if (postgresRepo != null) {
+            System.out.println("Connected to Postgres — live telemetry history will persist.");
+        } else {
+            System.out.println("Postgres not reachable (docker compose up -d postgres) — using in-memory history; /history will be empty.");
+        }
+
+        AtomicReference<List<String>> liveAircraftIds = new AtomicReference<>(List.of());
+        File overlayFile = new File("../video-processing/live_overlay.bmp");
+        ServerBundle servers = bringUpServers(postgresRepo, liveAircraftIds::get, overlayFile, liveRoute, "LIVE");
+        System.out.println("HUD overlay is disabled in live mode (no fixed lead aircraft to sample video against).");
+
+        OpenSkyClient openSky = new OpenSkyClient();
+        Map<String, Double> prevHeadingByAircraft = new ConcurrentHashMap<>();
+        Map<String, Double> prevAltitudeByAircraft = new ConcurrentHashMap<>();
+
+        while (true) {
+            if (servers.ws().clientCount() > 0) {
+                try {
+                    List<OpenSkyClient.RealAircraftState> states =
+                            openSky.fetchStates(TURKEY_LAMIN, TURKEY_LOMIN, TURKEY_LAMAX, TURKEY_LOMAX);
+                    if (states.size() > LIVE_MAX_AIRCRAFT) {
+                        states = states.subList(0, LIVE_MAX_AIRCRAFT);
+                    }
+
+                    List<String> ids = new ArrayList<>();
+                    for (OpenSkyClient.RealAircraftState state : states) {
+                        ids.add(state.icao24());
+
+                        FlightData data = new FlightData(Instant.now(), state.latitude(), state.longitude(),
+                                state.altitudeMeters(), state.speedKts(), state.headingDeg());
+
+                        double prevHeading = prevHeadingByAircraft.getOrDefault(state.icao24(), Double.NaN);
+                        double prevAltitude = prevAltitudeByAircraft.getOrDefault(state.icao24(), Double.NaN);
+                        double rollDeg = 0, pitchDeg = 0;
+                        if (!Double.isNaN(prevHeading)) {
+                            rollDeg = clamp(angleDiffDeg(prevHeading, state.headingDeg()) * 6.0, -30, 30);
+                        }
+                        if (!Double.isNaN(prevAltitude)) {
+                            pitchDeg = clamp((state.altitudeMeters() - prevAltitude) * 0.05, -15, 15);
+                        }
+                        prevHeadingByAircraft.put(state.icao24(), state.headingDeg());
+                        prevAltitudeByAircraft.put(state.icao24(), state.altitudeMeters());
+
+                        Waypoint selfWaypoint = new Waypoint("Live position", state.latitude(), state.longitude(),
+                                state.altitudeMeters());
+
+                        telemetryRepository.record(state.icao24(), data);
+                        servers.ws().broadcast(TelemetryJson.telemetryTick(state.icao24(), state.callsign(), data,
+                                selfWaypoint, 0.0, Double.NaN, rollDeg, pitchDeg, 100.0));
+                    }
+                    liveAircraftIds.set(ids);
+                    System.out.println("OpenSky: broadcasting " + ids.size() + " real aircraft in Turkish airspace.");
+                } catch (Exception e) {
+                    System.err.println("OpenSky fetch failed: " + e.getMessage());
+                }
+            }
+            Thread.sleep(LIVE_POLL_INTERVAL_MS);
+        }
+    }
+
     /** Applies the aircraft's speed oscillation and lateral course weave on top of the clean simulated position. */
     private static FlightData applyProfileNoise(FlightData base, AircraftRuntime rt) {
         AircraftProfile p = rt.profile;
@@ -189,10 +335,17 @@ public final class TelemetryServerApp {
         Thread thread = new Thread(() -> {
             File videoProcessingDir = new File("../video-processing");
             File exe = new File(videoProcessingDir, "edge_detect.exe");
-            if (!exe.exists()) {
-                System.out.println("video-processing/edge_detect.exe not found — Sensor Feed overlay disabled "
-                        + "(build it with video-processing/build.bat).");
+            boolean useNative = NativeHudRenderer.isAvailable();
+            if (useNative) {
+                System.out.println("video-processing/hud_native.dll loaded — HUD pipeline runs in-process via JNI "
+                        + "instead of spawning edge_detect.exe per frame.");
+            } else if (!exe.exists()) {
+                System.out.println("Neither video-processing/hud_native.dll nor edge_detect.exe found — "
+                        + "Sensor Feed overlay disabled (build with video-processing/build.bat).");
                 return;
+            } else {
+                System.out.println("video-processing/hud_native.dll not found — falling back to spawning "
+                        + "edge_detect.exe per frame (build both with video-processing/build.bat).");
             }
 
             File sampleVideo = new File(videoProcessingDir, "assets/sample_sensor_feed.mp4");
@@ -229,22 +382,32 @@ public final class TelemetryServerApp {
                     }
                 }
 
-                try {
-                    List<String> command = new ArrayList<>(List.of(
-                            exe.getAbsolutePath(),
-                            String.valueOf(leadAircraft.prevHeading),
-                            String.valueOf(leadAircraft.profile.baseSpeedKts),
-                            String.valueOf(leadAircraft.prevAltitude),
-                            overlayFile.getAbsolutePath()));
-                    if (haveRealFrame) command.add(currentFrame.getAbsolutePath());
+                String inputPgmPath = haveRealFrame ? currentFrame.getAbsolutePath() : null;
+                if (useNative) {
+                    try {
+                        NativeHudRenderer.render(leadAircraft.prevHeading, leadAircraft.profile.baseSpeedKts,
+                                leadAircraft.prevAltitude, overlayFile.getAbsolutePath(), inputPgmPath);
+                    } catch (Throwable t) {
+                        System.err.println("Native HUD render failed: " + t.getMessage());
+                    }
+                } else {
+                    try {
+                        List<String> command = new ArrayList<>(List.of(
+                                exe.getAbsolutePath(),
+                                String.valueOf(leadAircraft.prevHeading),
+                                String.valueOf(leadAircraft.profile.baseSpeedKts),
+                                String.valueOf(leadAircraft.prevAltitude),
+                                overlayFile.getAbsolutePath()));
+                        if (haveRealFrame) command.add(currentFrame.getAbsolutePath());
 
-                    ProcessBuilder pb = new ProcessBuilder(command);
-                    pb.directory(videoProcessingDir);
-                    pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-                    pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-                    pb.start().waitFor();
-                } catch (Exception e) {
-                    System.err.println("HUD overlay generation failed: " + e.getMessage());
+                        ProcessBuilder pb = new ProcessBuilder(command);
+                        pb.directory(videoProcessingDir);
+                        pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                        pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+                        pb.start().waitFor();
+                    } catch (Exception e) {
+                        System.err.println("HUD overlay generation failed: " + e.getMessage());
+                    }
                 }
                 try {
                     Thread.sleep(3000);
