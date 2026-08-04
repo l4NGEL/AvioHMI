@@ -30,7 +30,7 @@ pipeline {
                     steps {
                         dir('ground-control') {
                             sh '''
-                                npm ci
+                                npm install
                                 npx tsc --noEmit
                                 npm run build
                             '''

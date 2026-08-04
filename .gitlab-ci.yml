@@ -22,7 +22,7 @@ ground-control:
   image: node:22
   script:
     - cd ground-control
-    - npm ci
+    - npm install
     - npx tsc --noEmit
     - npm run build
 
